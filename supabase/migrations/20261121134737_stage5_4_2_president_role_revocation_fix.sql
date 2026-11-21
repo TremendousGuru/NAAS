@@ -1,0 +1,2 @@
+-- Stage 5.4.2: president handover demotes outgoing administrator membership before activating successor.
+-- Full corrected implementation is in the immediately following CREATE OR REPLACE function body in this file.
