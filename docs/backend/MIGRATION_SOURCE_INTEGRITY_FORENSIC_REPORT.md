@@ -101,3 +101,18 @@ The new capture reconfirmed:
 This capture is a catalog-level evidence record, **not** a restorable database backup, a full schema-only export, or recovered historical SQL. The current-state baseline has not yet been created. A proper owner-controlled backup, complete schema-only export with hashes, and object-to-source reconciliation matrix are still required.
 
 **Updated disposition:** Read-only evidence snapshot captured. Historical migration synchronization remains **NOT PASSED**. No Supabase schema or migration-history changes, migration replay, paid branch creation, or Phase 5.9 DDL were performed. Any next database operation requires a separate explicit owner approval after the preservation/reconciliation package is reviewed.
+
+## 8. Read-only object-to-source reconciliation matrix — 21 November 2026
+
+The complete read-only object-to-source matrix has been committed:
+
+- [RECONSTRUCTED_BASELINE_OBJECT_SOURCE_RECONCILIATION.md](RECONSTRUCTED_BASELINE_OBJECT_SOURCE_RECONCILIATION.md)
+- Commit: `97a29e5575d3ea9f6218b0007c8c17b9293f8276`
+
+It enumerates all 14 live public tables and maps each to candidate migration sources and confidence levels. It also records all 36 public/private functions, 11 non-internal triggers, 25 RLS policies, 85 indexes, and 115 constraints, including source candidates and unresolved provenance.
+
+The expanded comparison confirms 21 exact filename/version alignments, four missing applied Stage 5.6 source files, four timestamp-mismatched files (Stage 5.5.2 and Stage 5.7.0–5.7.2), and one repository-only `org_foundation` file. Exact filename/version alignment is not a cryptographic proof of the applied SQL body.
+
+Important additional finding: the repository-only `org_foundation` file defines `org_units`, `org_memberships`, and foundational private helpers. Those objects exist live and are prerequisites of later applied migrations, but no matching ledger entry exists. Their historical introduction therefore remains unresolved; the file must not be replayed or treated as a proven applied migration.
+
+The matrix is a read-only current-state reconciliation, not a restorable backup or full schema-only export. The migration synchronization gate remains **NOT PASSED**. No Supabase schema, data, or migration-history changes were performed; no paid branch was created; Phase 5.9 remains blocked.
