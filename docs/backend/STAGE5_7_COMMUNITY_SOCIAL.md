@@ -1,0 +1,53 @@
+# NAASCONNECT Nigeria — Stage 5.7 Community & Social Features
+
+**Stage:** 5.7 — Community and platform-wide status updates  
+**Status:** Initial backend foundation implemented; application UI and controlled-account end-to-end verification remain for later frontend/final integration phases.  
+**Supabase project:** NAAS (`csytneubatlaakpmnsfk`)  
+**GitHub repository:** `TremendousGuru/NAAS`
+
+## Approved behavior
+
+- Individual members can publish a status update.
+- Authorized organizational administrators can publish on behalf of their organization (campus, church, zone, union or national organization).
+- Published, unexpired statuses are visible platform-wide to authenticated NAASCONNECT users, not restricted to the author's organization.
+- Statuses expire after 24 hours by default, reflecting the previously approved WhatsApp-style status concept.
+- Text is required (1–2,000 characters). An optional HTTPS media URL is supported as a reference; media upload/storage integration is not part of this database foundation.
+- Personal status creation requires the author to have at least one active NAASCONNECT organization membership.
+- Organization status creation requires the current user to pass the existing `private.can_administer_org` authorization check for that organization.
+- Personal authors can delete their own personal statuses. Organization statuses can be deleted by administrators authorized over that organization.
+- No public/anonymous access is granted.
+
+## Database implementation
+
+Created `public.community_statuses` with:
+- `author_user_id`: authenticated author identity.
+- `author_org_id`: null for personal posts; populated for organization-authored posts.
+- `content`: required text.
+- `media_url`: optional HTTPS URL.
+- `created_at` and `expires_at`: status lifetime metadata.
+
+RLS is enabled. Authenticated users can read only unexpired records. Insert and delete policies enforce the ownership and organizational authorization rules above. Anonymous privileges are revoked. The feed index supports expiry filtering and newest-first ordering.
+
+Migration: `20261121162500_stage5_7_global_community_statuses` — [SQL migration](../../supabase/migrations/20261121162500_stage5_7_global_community_statuses.sql).
+
+## Deliberately not included in this initial backend slice
+
+- Comments, reactions, private messaging or group chat.
+- Push/email notifications.
+- Media file upload/storage buckets.
+- Event creation and event management (separate roadmap capability).
+- Frontend feed/status viewer and composer.
+- Read receipts / status-viewer lists.
+
+These should be implemented only in their corresponding planned stages, without broadening this stage unexpectedly.
+
+## Verification and limitations
+
+- Migration applied successfully to the existing NAAS Supabase project; no paid branch was created.
+- Table has RLS enabled and anonymous privileges revoked.
+- Authenticated feed reads are limited to statuses whose expiry is in the future.
+- Personal and organization insert policies use the authenticated identity and existing active-membership / organizational-admin authorization foundation.
+- No production member, organization, membership or status rows were inserted or modified during this implementation.
+- Controlled-account positive/negative tests are deferred under the user's approved decision to defer Stage 5.6.8 and consolidate end-to-end testing later.
+- Before release, verify personal posting, organization posting at all five hierarchy levels, platform-wide visibility, unauthorized organization posting/deletion denial, expiry filtering and media URL handling with controlled accounts.
+
