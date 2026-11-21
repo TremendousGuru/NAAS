@@ -70,3 +70,52 @@ Still required:
 6. Complete Phase 5.9 P1 audit-governance decisions before implementation.
 
 No Supabase schema/data/ledger changes, migration replay, paid branch creation, or Phase 5.9 DDL occurred during this recovery. All recovered SQL payload files are outside `supabase/migrations/` and are evidence only. The database-write approval gate remains closed. NAASCONNECT V1.0 remains the source of truth.
+
+
+## 7. Follow-up comparison of all 29 applied SQL payloads
+
+A subsequent read-only comparison fetched the stored SQL payload for every ledger row and compared it with the corresponding same-version/name repository file, where one exists. The comparison removed SQL line comments and normalized whitespace before comparing text.
+
+Results:
+
+- **12 of 21** same-version/name repository files match their ledger payload after that normalization.
+- **9 of 21** same-version/name repository files differ after normalization. Their applied ledger payloads have now also been preserved in this directory.
+- The four timestamp-shifted Stage 5.5.2/5.7 candidates match their ledger payloads after comment/whitespace normalization.
+- The four missing Stage 5.6 applied SQL payloads are recovered from the ledger.
+- Thus **17 ledger SQL payloads** are now preserved individually: the 8 formerly unmatched entries plus 9 same-version/name content divergences.
+- The other 12 same-version/name repository files are textually corroborated against their ledger payload after normalization.
+
+The nine same-version/name content-divergent versions are:
+
+- `20261121130420` — `stage5_provisional_geography_admin_seats`
+- `20261121132238` — `stage5_3_admin_appointment_approval_engine`
+- `20261121132415` — `stage5_3_1_harden_admin_appointment_rpc_wrappers`
+- `20261121134717` — `stage5_4_leadership_handover_executive_management`
+- `20261121134728` — `stage5_4_1_handover_security_and_review_fixes`
+- `20261121134737` — `stage5_4_2_president_role_revocation_fix`
+- `20261121140551` — `stage5_5_executive_portfolios_directory_term_management`
+- `20261121150236` — `stage5_6_6_scoped_membership_directory_and_statistics`
+- `20261121150817` — `stage5_6_7_org_membership_review_queues_and_reporting`
+
+This is a significant new finding: the 26-file active migration directory is not merely short four Stage 5.6 files; nine other same-version/name files also differ from the SQL payload recorded in the remote ledger. The ledger-recovered SQL payloads, not the divergent repository copies, are the strongest available evidence of what the remote migration records stored.
+
+The 12 normalized matches and 4 timestamp-shifted normalized matches are not byte-identical file proofs. The 17 preserved ledger payloads are exact as returned from the ledger statement array, but not guaranteed to recreate original file comments or local file packaging.
+
+## 8. Revised P0 reconciliation status
+
+The 29 remote migration entries now have a complete evidence mapping:
+- 12 have same-version/name repository SQL that matches the stored ledger payload after comment/whitespace normalization.
+- 4 have timestamp-shifted repository SQL candidates that match the stored ledger payload after comment/whitespace normalization.
+- 13 require the ledger-recovered payload as the canonical evidence artifact (4 missing Stage 5.6 sources plus 9 same-version/name divergences).
+
+The 17 ledger payloads for the last category and timestamp-shifted entries are preserved under `docs/backend/recovered-ledger-statements/`. All evidence files remain outside `supabase/migrations/`.
+
+A local ordered migration source set has not been installed into the active migration runner. That is deliberate: the active directory contains duplicate/unapplied timestamp candidates and divergent copies, and changing it without an approved reconciliation plan could cause a future CLI operation to attempt unintended migrations. The archive is evidence, not a migration-runner repair.
+
+Remaining P0 blockers are now narrowed to:
+1. Complete schema-only export and SHA-256 manifest.
+2. Separate full restorable backup verification.
+3. Formal disposition of repository-only `org_foundation` as an out-of-band baseline, including owner/execution provenance or explicit accepted baseline treatment.
+4. A final owner-reviewed migration-source mapping and non-mutating dry-run/migration-list validation using a controlled local copy of the evidence set. No file renames, ledger edits, or database writes are authorized by this addendum.
+
+P1 audit-governance decisions remain outstanding. The database-write approval gate remains closed.
