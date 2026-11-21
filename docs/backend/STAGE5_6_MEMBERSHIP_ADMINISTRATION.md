@@ -94,7 +94,7 @@ Database changes:
 
 Applied migrations:
 - `20261121145523_stage5_6_4_membership_status_lifecycle` — [SQL migration](../../supabase/migrations/20261121145523_stage5_6_4_membership_status_lifecycle.sql)
-- `20261121145524_stage5_6_4_membership_status_actor_index` — [SQL migration](../../supabase/migrations/20261121145524_stage5_6_4_membership_status_actor_index.sql)
+- `20261121145544_stage5_6_4_membership_status_actor_index` — [SQL migration](../../supabase/migrations/20261121145544_stage5_6_4_membership_status_actor_index.sql)
 
 Verification:
 - Both migrations applied successfully.
