@@ -1,7 +1,7 @@
 # NAASCONNECT Nigeria — Stage 5.6 Membership Administration
 
 **Stage:** 5.6 — Member Administration & Organizational Membership Management  
-**Status:** Transfer review engine implemented; full member-facing workflows and controlled-account end-to-end tests remain pending.  
+**Status:** Membership transfer and status-management backend RPCs implemented; scoped directory/reporting, cancellation coverage, UI and controlled-account end-to-end tests remain pending.  
 **Supabase project:** NAAS (`csytneubatlaakpmnsfk`)  
 **GitHub repository:** `TremendousGuru/NAAS`
 
@@ -68,10 +68,48 @@ The public RPC is a `SECURITY INVOKER` wrapper. The implementation is held in th
 
 **Testing limitation:** No controlled source-admin, destination-admin and member test accounts were available in this execution context. Therefore, the successful end-to-end path and negative cross-jurisdiction scenarios still require controlled test accounts before Stage 5.6 can be closed.
 
+
+### Stage 5.6.4 — Membership suspension, reactivation and termination
+
+Added `public.manage_membership_status(p_membership_id, p_action, p_reason)` with the private implementation `private.manage_membership_status(...)`.
+
+Supported transitions:
+- `suspend`: active → suspended.
+- `reactivate`: suspended → active.
+- `terminate`: active or suspended → ended.
+- Pending memberships cannot be changed through this operation; ended memberships cannot be reactivated through this operation.
+
+Authorization and safeguards:
+- Requires an authenticated actor and an active administrator authorized over the membership's organization through `private.can_administer_org`. The existing hierarchy permits higher-level administrators to manage subordinate organizations, while unrelated organizations remain out of scope.
+- Administrators cannot change their own membership status through this RPC.
+- A non-empty reason of 10–1000 characters is mandatory.
+- The target membership row is locked during transition; invalid or stale transitions fail without partial updates.
+- The public RPC is SECURITY INVOKER. Its implementation is in the non-public `private` schema as SECURITY DEFINER, with an empty search path and schema-qualified relations. Anonymous execution is revoked; authenticated execution is explicitly granted.
+- The membership row records the latest status reason, actor and timestamp. Each transition also inserts a durable `membership_events` record with previous status, new status and reason in the same transaction.
+
+Database changes:
+- Added nullable `status_reason`, `status_changed_by`, and `status_changed_at` columns to `public.org_memberships`.
+- Added a reason-length constraint and an index for the `status_changed_by` foreign key.
+- Reused the existing event constraint values `membership_suspended`, `membership_reactivated`, and `membership_ended`.
+
+Applied migrations:
+- `20261121145523_stage5_6_4_membership_status_lifecycle`
+- `20261121145524_stage5_6_4_membership_status_actor_index`
+
+Verification:
+- Both migrations applied successfully.
+- Confirmed the three new membership columns and the event-type constraint.
+- Confirmed public wrapper is SECURITY INVOKER and private implementation is SECURITY DEFINER.
+- Confirmed authenticated role can execute the public RPC and anonymous role cannot; the private implementation is not executable by anon.
+- Unauthenticated-call guard test passed (SQLSTATE 28000); no membership rows were changed or seeded.
+- Security advisor: zero findings. Health advisor: zero findings.
+- Performance advisor initially identified the new status-actor foreign key as unindexed; added the covering index. Remaining performance notices are informational unused-index reports.
+
+**Testing limitation:** No controlled administrator/member test accounts were available. Therefore, full successful transition tests and negative cross-jurisdiction tests (including unrelated-admin denial and self-change denial) remain required before closing the broader Stage 5.6 workflow.
+
 ## Remaining Stage 5.6 work
 
 1. Add member-initiated cancellation and authorized rejection coverage with audit events.
-2. Add authorized membership status management (suspend/reactivate/end) with reason and audit.
 3. Add scoped directory/search and aggregate membership statistics that disclose only approved profile fields.
 4. Add organization-level membership review queues and reporting.
 5. Test complete workflows and role boundaries with controlled test accounts.
