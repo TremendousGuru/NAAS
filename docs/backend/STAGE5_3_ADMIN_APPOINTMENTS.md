@@ -21,7 +21,7 @@ There are currently no active administrator memberships. The national seat's app
 ## Remaining
 - Frontend appointment/review/invite screens and invitation acceptance UI.
 - Mandatory profile/password completion UX.
-- Leadership handover workflow (separate process).
+- Leadership handover workflow is implemented in `docs/backend/STAGE5_4_LEADERSHIP_HANDOVER.md`.
 - End-to-end tests using real accounts at each level.
 - SMTP delivery test after configuration.
 
