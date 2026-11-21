@@ -226,3 +226,16 @@ Any change to V1 scope, architecture, data model, hierarchy, roles, permissions,
 
 ---
 *End of reconciliation register.*
+
+
+## 8. Follow-up forensic update — 21 November 2026
+
+A deeper read-only investigation and Git commit-history review was completed after the initial register commit. The detailed evidence is in [Migration Source Integrity Forensic Report](../backend/MIGRATION_SOURCE_INTEGRITY_FORENSIC_REPORT.md).
+
+- The four missing applied Stage 5.6 SQL sources were not recovered from the current repository tree or inspected commit history.
+- Stage 5.6 backend documentation was found to list three migration version IDs that do not match the live Supabase ledger. The authoritative observed ledger IDs are 20261121142038, 20261121142049 and 20261121142125.
+- The Stage 5.5.2 and three Stage 5.7 GitHub files are semantically corroborated by commit history and live database objects, but exact applied SQL identity cannot be proven because the ledger does not expose SQL bodies/checksums.
+- The repository-only `20261121133000_org_foundation.sql` has no ledger entry and would collide with existing tables if replayed; it is classified as an untracked/superseded artifact pending origin review.
+- The membership domain already has `membership_events`; leadership domain has `leadership_history` and `leadership_notification_events`. V1 Phase 5.9 design therefore explicitly avoids duplicating those records.
+
+**Migration synchronization gate: NOT PASSED.** No migration was reapplied, renamed, deleted or duplicated; no Supabase ledger was edited. No new Phase 5.9 migration or database object was created. Phase 5.9 has a design-only specification at [V1 Phase 5.9 General Audit Logs Design](../backend/V1_PHASE_5_9_GENERAL_AUDIT_LOGS_DESIGN.md). Implementation is held until original migration sources or a formally approved recovery baseline are available.
