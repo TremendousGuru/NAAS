@@ -223,3 +223,42 @@ Only after P0 and P1 pass: recheck object-name collisions; create and review the
 | Stage 6 implementation | **Not started** |
 
 **Safety attestation:** No Supabase schema/data/ledger change, migration replay, paid branch, or Phase 5.9 DDL was performed during this preservation pass.
+
+
+---
+
+## 10. Subsequent evidence recovery update — 21 November 2026
+
+This section supersedes earlier statements in this preservation snapshot where later evidence is now available. The original snapshot remains preserved as a record of what was known at capture time.
+
+### 10.1 Remote migration ledger statement payloads
+
+A later read-only inspection found that `supabase_migrations.schema_migrations` contains a `statements` text-array column. All 29 ledger rows contain exactly one SQL statement payload. This corrects the earlier assumption that the ledger exposed only version/name metadata.
+
+Seventeen ledger SQL payloads were recovered and committed under `docs/backend/recovered-ledger-statements/`:
+- Eight previously unmatched ledger entries (four missing Stage 5.6 payloads and four timestamp-shifted Stage 5.5.2/5.7 entries).
+- Nine same-version/name entries whose active repository SQL differs from the stored ledger payload after comment/whitespace normalization.
+
+Of the 21 same-version/name repository files, 12 match their ledger payload after comment/whitespace normalization and 9 differ. The four timestamp-shifted Stage 5.5.2/5.7 candidates match their ledger payload after comment/whitespace normalization. The four missing Stage 5.6 applied SQL payloads are recovered directly from the ledger.
+
+These ledger payloads are the strongest available evidence of the SQL submitted for the applied migration records. They are not necessarily byte-for-byte copies of original local files, including comments and packaging.
+
+See [Phase 5.9 ledger statement recovery addendum](PHASE_5_9_LEDGER_STATEMENT_RECOVERY_ADDENDUM.md).
+
+### 10.2 Out-of-band organizational foundation execution
+
+PostgreSQL logs for 21 November 2026 record the organizational foundation SQL being submitted through `POST /mcp` at **12:28:48.007 UTC**, followed by the two `created_by` / `approved_by` indexes at **12:29:14.311 UTC**. The corresponding SQL statements are preserved under `docs/backend/recovered-baseline-logs/`.
+
+This establishes that the organizational foundation was executed outside the 29-row migration ledger. The committed repository-only `20261121133000_org_foundation.sql` is related but is not an exact copy of the logged SQL: it differs in explicit NULL syntax, index idempotency/placement, privilege statement packaging, and the national-root description text. The logged statements are the stronger execution evidence. See [out-of-band foundation provenance](recovered-baseline-logs/README.md).
+
+### 10.3 Revised P0 disposition
+
+The four Stage 5.6 applied SQL payloads have now been recovered from the remote ledger, so the owner-approved reconstructed drafts are superseded for historical applied-SQL evidence. The drafts remain preserved as a reconstruction exercise and must not be treated as original source or replayed.
+
+The out-of-band organizational foundation execution is also evidenced by PostgreSQL logs. The remaining P0 blockers are now:
+- Complete schema-only export plus verified archive listing and SHA-256 manifest.
+- Separate full restorable backup verification.
+- Final owner-reviewed mapping of all 29 ledger payloads to the active repository/evidence archive, including explicit treatment of the nine divergent same-version files and the timestamp-shifted candidates.
+- Non-mutating local validation/migration-list dry run using a controlled source copy, proving no applied migration would be replayed and no ledger entry is unaccounted for.
+
+No recovered SQL file has been placed in `supabase/migrations/`. Do not repair the active directory, rename files, edit the remote ledger, or run `db push` without a separate approved plan. P1 audit-governance decisions remain outstanding. The database-write approval gate remains closed.
