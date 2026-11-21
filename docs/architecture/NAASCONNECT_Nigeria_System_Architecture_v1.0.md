@@ -247,3 +247,23 @@ These are policy parameters, not reasons to redesign the architecture:
 6. Retention duration for audit records and deleted media.
 
 The platform should make these configurable where practical and must not invent institutional authority where it has not been formally confirmed.
+
+
+## Stage 5.5 — Executive Onboarding & Organizational Management (Backend)
+
+The executive management backend extends the approved hierarchy without changing its authority chain:
+National → Union → Zone → Campus → Church.
+
+- Organizations configure their own executive portfolios, responsibilities, ordering, required status, and suggested term duration.
+- Portfolio management is restricted to administrators whose jurisdiction includes the organization.
+- Executive appointment continues through the Stage 5.4 initial-appointment/handover workflow and parent-level approval; nominees must be verified and active members.
+- The executive directory is visible only to active members of the organization and administrators with jurisdiction. It exposes only display name and avatar alongside position/term information.
+- Term end dates and appointment notes are maintained through a scoped administrative RPC. The directory identifies terms ending within 60 days and expired terms.
+- Portfolio and term RPCs are authenticated-only. The directory API wrapper is SECURITY INVOKER and delegates to a private, scope-checking implementation.
+
+Applied migrations:
+- `20261121140551_stage5_5_executive_portfolios_directory_term_management`
+- `20261121140620_stage5_5_1_harden_directory_rpc_and_fk_indexes`
+- `20261121140749_stage5_5_2_scoped_executive_term_updates`
+
+Frontend dashboards, outbound notification delivery, scheduled reminders, and real-account end-to-end tests remain later implementation work. No live executive records or unconfirmed standard portfolios are seeded.
