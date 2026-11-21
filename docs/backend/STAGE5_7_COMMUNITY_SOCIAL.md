@@ -28,7 +28,7 @@ Created `public.community_statuses` with:
 
 RLS is enabled. Authenticated users can read only unexpired records. Insert and delete policies enforce the ownership and organizational authorization rules above. Anonymous privileges are revoked. The feed index supports expiry filtering and newest-first ordering.
 
-Migration: `20261121162500_stage5_7_global_community_statuses` — [SQL migration](../../supabase/migrations/20261121162500_stage5_7_global_community_statuses.sql).\n\nHardening migration: `20261121162600_stage5_7_1_status_policy_and_fk_index_hardening` — consolidates insert/delete policies to avoid duplicate permissive-policy overhead and adds indexes for both author foreign keys. [SQL migration](../../supabase/migrations/20261121162600_stage5_7_1_status_policy_and_fk_index_hardening.sql).
+Migration: `20261121162500_stage5_7_global_community_statuses` — [SQL migration](../../supabase/migrations/20261121162500_stage5_7_global_community_statuses.sql).\n\nHardening migration: `20261121162600_stage5_7_1_status_policy_and_fk_index_hardening` — consolidates insert/delete policies to avoid duplicate permissive-policy overhead and adds indexes for both author foreign keys. [SQL migration](../../supabase/migrations/20261121162600_stage5_7_1_status_policy_and_fk_index_hardening.sql).\n\nPrivilege migration: `20261121162700_stage5_7_2_restrict_authenticated_status_table_grants` — removes inherited broad authenticated table grants and explicitly grants only SELECT, INSERT and DELETE. [SQL migration](../../supabase/migrations/20261121162700_stage5_7_2_restrict_authenticated_status_table_grants.sql).
 
 ## Deliberately not included in this initial backend slice
 
@@ -43,7 +43,7 @@ These should be implemented only in their corresponding planned stages, without 
 
 ## Verification and limitations
 
-- Both migrations applied successfully to the existing NAAS Supabase project; no paid branch was created.\n- Security advisor: zero findings. Health advisor: zero findings.\n- Performance advisor initially identified unindexed author foreign keys and duplicate permissive insert/delete policies; Stage 5.7.1 added the two foreign-key indexes and consolidated each policy pair.
+- Both migrations applied successfully to the existing NAAS Supabase project; no paid branch was created.\n- Security advisor: zero findings. Health advisor: zero findings.\n- Explicit privilege verification found inherited broad authenticated grants; Stage 5.7.2 revoked them and re-granted only SELECT, INSERT and DELETE.\n- Performance advisor initially identified unindexed author foreign keys and duplicate permissive insert/delete policies; Stage 5.7.1 added the two foreign-key indexes and consolidated each policy pair.
 - Table has RLS enabled and anonymous privileges revoked.
 - Authenticated feed reads are limited to statuses whose expiry is in the future.
 - Personal and organization insert policies use the authenticated identity and existing active-membership / organizational-admin authorization foundation.
