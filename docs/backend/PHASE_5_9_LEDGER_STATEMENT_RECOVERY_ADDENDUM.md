@@ -119,3 +119,30 @@ Remaining P0 blockers are now narrowed to:
 4. A final owner-reviewed migration-source mapping and non-mutating dry-run/migration-list validation using a controlled local copy of the evidence set. No file renames, ledger edits, or database writes are authorized by this addendum.
 
 P1 audit-governance decisions remain outstanding. The database-write approval gate remains closed.
+
+
+## 9. Out-of-band organizational foundation execution recovered from PostgreSQL logs
+
+A read-only query of Supabase PostgreSQL logs for 21 November 2026 captured the organizational foundation being executed through the management API:
+
+- **12:28:48.007 UTC:** the `private` schema, `public.org_units`, `public.org_memberships`, hierarchy helpers, triggers, RLS, grants, policies, and national root seed SQL were submitted. The log annotation identifies the source as `POST /mcp`.
+- **12:29:14.311 UTC:** follow-up statements created `org_units_created_by_idx` and `org_memberships_approved_by_idx`, also annotated as `POST /mcp`.
+
+The SQL payloads are preserved under [`docs/backend/recovered-baseline-logs/`](recovered-baseline-logs/README.md). This is execution-log evidence for an out-of-band baseline, not a 30th migration and not a reason to add a row to the migration ledger.
+
+The committed `supabase/migrations/20261121133000_org_foundation.sql` is related to, but not byte-identical with, the logged execution. Differences include explicit `NULL` syntax, `CREATE INDEX IF NOT EXISTS` and index placement, privilege statement packaging, and the national-root description. The log-recovered SQL is the stronger evidence of what was submitted. This resolves the question of whether a foundation was executed out-of-band; it does not make the repository-only file safe to replay.
+
+## 10. Final current P0 checklist
+
+| Requirement | Current status |
+|---|---|
+| Four missing Stage 5.6 applied SQL payloads | **Recovered from remote ledger statements** |
+| Stage 5.5.2 / Stage 5.7 timestamp-shifted payloads | **Recovered; candidate SQL matches after comment/whitespace normalization** |
+| Nine same-version repository files with divergent SQL | **Ledger payloads recovered and preserved** |
+| Twelve same-version repository files matching ledger SQL | **Textually corroborated after comment/whitespace normalization** |
+| Out-of-band `org_foundation` execution | **PostgreSQL log evidence recovered; actual submitted SQL preserved** |
+| Complete schema-only export and SHA-256 manifest | **Outstanding** |
+| Separate full restorable backup verification | **Outstanding** |
+| Owner-reviewed final 29-entry mapping and non-mutating local dry-run/migration-list validation | **Outstanding** |
+
+The 17 ledger-recovered SQL payloads are evidence artifacts only and remain outside the active migration directory. The four reconstructed Stage 5.6 drafts remain preserved but are superseded by the recovered ledger payloads for historical-source purposes. P1 audit-governance decisions remain outstanding. The database-write approval gate remains closed.
