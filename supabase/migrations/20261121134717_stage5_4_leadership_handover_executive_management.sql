@@ -135,7 +135,7 @@ begin
  if not exists(select 1 from auth.users u where u.id=v_req.incoming_user_id and u.email_confirmed_at is not null)
   or not exists(select 1 from public.org_memberships m where m.org_id=v_req.org_id and m.user_id=v_req.incoming_user_id and m.status='active') then raise exception 'Incoming leader no longer meets account and membership requirements'; end if;
  update public.org_leadership_positions set current_user_id=v_req.incoming_user_id,status='active',term_started_at=now() where id=v_pos.id;
- if v_pos.position_key='president' then
+ if v_req.position_key='president' then
   v_admin_role:=case v_org.org_type when 'national' then 'national_admin' when 'union' then 'union_admin' when 'zone' then 'zone_admin' when 'campus' then 'campus_admin' when 'church' then 'church_admin' end;
   v_member_role:=case when v_org.org_type='church' then 'church_member' else 'member' end;
   if v_req.outgoing_user_id is not null then update public.org_memberships set role=v_member_role where org_id=v_req.org_id and user_id=v_req.outgoing_user_id and status='active' and role=v_admin_role; end if;
