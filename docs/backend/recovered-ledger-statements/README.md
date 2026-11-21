@@ -5,35 +5,53 @@
 **Repository:** `TremendousGuru/NAAS`  
 **Capture method:** Read-only SELECT from `supabase_migrations.schema_migrations`  
 **Captured:** 21 November 2026  
-**Disposition:** Evidence artifacts only; never replay these files.
+**Disposition:** Applied SQL statement payloads preserved as evidence only; do not replay.
 
 ## Evidence meaning
 
-The remote migration ledger table contains a `statements` array. A read-only query retrieved `statements[1]` for each of the eight ledger entries that lacked an exact same-version file in the active repository migration directory. Each returned array contained one SQL payload. The files in this folder preserve that SQL payload as returned, without adding SQL comments or changing the statement text.
+The remote migration ledger contains a `statements` text-array column. A read-only inspection found that all **29** ledger rows contain exactly **one** SQL statement payload. The SQL text returned by `statements[1]` is the SQL statement payload stored for that applied migration entry.
 
-These are the SQL statement payloads recorded in the remote ledger for the applied migration entries. They are stronger evidence than reconstructing from the live schema. They do not necessarily reproduce the original local migration file byte-for-byte, including comments, formatting outside the stored statement, or the exact original file packaging.
+This is stronger than reconstructing from current catalog objects. It preserves the submitted SQL statement content recorded in the ledger. It does **not** guarantee byte-for-byte recovery of the original local `.sql` file, including comments, filename, local file formatting, or original Git blob.
 
-## Captured ledger entries
+## Recovered payload archive
 
-| Ledger version | Ledger name | Payload file | Characters |
-|---|---|---|---:|
-| `20261121140749` | `stage5_5_2_scoped_executive_term_updates` | `20261121140749_stage5_5_2_scoped_executive_term_updates.ledger-recovered.sql` | 1884 |
-| `20261121142038` | `stage5_6_membership_transfer_and_history_foundation` | `20261121142038_stage5_6_membership_transfer_and_history_foundation.ledger-recovered.sql` | 5408 |
-| `20261121142049` | `stage5_6_1_lock_transfer_updates_pending_scoped_rpc` | `20261121142049_stage5_6_1_lock_transfer_updates_pending_scoped_rpc.ledger-recovered.sql` | 177 |
-| `20261121142125` | `stage5_6_2_membership_fk_performance_indexes` | `20261121142125_stage5_6_2_membership_fk_performance_indexes.ledger-recovered.sql` | 750 |
-| `20261121145225` | `stage5_6_3_transactional_membership_transfer_review` | `20261121145225_stage5_6_3_transactional_membership_transfer_review.ledger-recovered.sql` | 7761 |
-| `20261121152734` | `stage5_7_global_community_statuses` | `20261121152734_stage5_7_global_community_statuses.ledger-recovered.sql` | 2234 |
-| `20261121152827` | `stage5_7_1_status_policy_and_fk_index_hardening` | `20261121152827_stage5_7_1_status_policy_and_fk_index_hardening.ledger-recovered.sql` | 1307 |
-| `20261121152909` | `stage5_7_2_restrict_authenticated_status_table_grants` | `20261121152909_stage5_7_2_restrict_authenticated_status_table_grants.ledger-recovered.sql` | 135 |
+Seventeen ledger payloads were preserved as individual files in this directory. They comprise:
+- 8 ledger entries without an exact same-version source filename (including all four missing Stage 5.6 sources and the four timestamp-shifted Stage 5.5.2/5.7 candidates).
+- 9 additional same-version/name entries whose active repository SQL did not match the ledger payload after comments and whitespace were removed.
 
-## Comparison with timestamp-shifted repository candidates
+| Ledger version | Ledger name | SQL chars | Comparison / reason |
+|---|---|---:|---|
+| `20261121130420` | `stage5_provisional_geography_admin_seats` | 6359 | same-version file differs |
+| `20261121132238` | `stage5_3_admin_appointment_approval_engine` | 5430 | same-version file differs |
+| `20261121132415` | `stage5_3_1_harden_admin_appointment_rpc_wrappers` | 3873 | same-version file differs |
+| `20261121134717` | `stage5_4_leadership_handover_executive_management` | 17680 | same-version file differs |
+| `20261121134728` | `stage5_4_1_handover_security_and_review_fixes` | 5669 | same-version file differs |
+| `20261121134737` | `stage5_4_2_president_role_revocation_fix` | 4986 | same-version file differs |
+| `20261121140551` | `stage5_5_executive_portfolios_directory_term_management` | 8072 | same-version file differs |
+| `20261121140749` | `stage5_5_2_scoped_executive_term_updates` | 1884 | timestamp-shifted candidate matches after whitespace/comment normalization |
+| `20261121142038` | `stage5_6_membership_transfer_and_history_foundation` | 5408 | no same-version source file |
+| `20261121142049` | `stage5_6_1_lock_transfer_updates_pending_scoped_rpc` | 177 | no same-version source file |
+| `20261121142125` | `stage5_6_2_membership_fk_performance_indexes` | 750 | no same-version source file |
+| `20261121145225` | `stage5_6_3_transactional_membership_transfer_review` | 7761 | no same-version source file |
+| `20261121150236` | `stage5_6_6_scoped_membership_directory_and_statistics` | 10027 | same-version file differs |
+| `20261121150817` | `stage5_6_7_org_membership_review_queues_and_reporting` | 10089 | same-version file differs |
+| `20261121152734` | `stage5_7_global_community_statuses` | 2234 | timestamp-shifted candidate matches after comment/whitespace normalization |
+| `20261121152827` | `stage5_7_1_status_policy_and_fk_index_hardening` | 1307 | timestamp-shifted candidate matches after comment/whitespace normalization |
+| `20261121152909` | `stage5_7_2_restrict_authenticated_status_table_grants` | 135 | timestamp-shifted candidate matches after comment/whitespace normalization |
 
-- `20261121140749`: candidate `supabase/migrations/20261121140642_stage5_5_2_scoped_executive_term_updates.sql`; exact text match: **false**; SQL comparison after stripping line comments and normalizing whitespace: **false**; repository blob SHA: `86bae2fcb12f05511d8acc0c152ff2d4ac3286b1`.
-- `20261121152734`: candidate `supabase/migrations/20261121162500_stage5_7_global_community_statuses.sql`; exact text match: **false**; SQL comparison after stripping line comments and normalizing whitespace: **true**; repository blob SHA: `7595038bb22085b1b7d6046187dffef445e2d61e`.
-- `20261121152827`: candidate `supabase/migrations/20261121162600_stage5_7_1_status_policy_and_fk_index_hardening.sql`; exact text match: **false**; SQL comparison after stripping line comments and normalizing whitespace: **true**; repository blob SHA: `6d05c68caf6e58c41fffab63c2a90a8b64409aae`.
-- `20261121152909`: candidate `supabase/migrations/20261121162700_stage5_7_2_restrict_authenticated_status_table_grants.sql`; exact text match: **false**; SQL comparison after stripping line comments and normalizing whitespace: **true**; repository blob SHA: `3a86a729eda24c5d492fa1de0e99e40d39f36fa5`.
+## Full 29-row comparison result
 
-A normalized match supports that the current repository candidate has the same SQL statements, even though its filename timestamp differs. It does not establish why the filename timestamp differs or prove that the local file was the exact artifact used at execution time.
+- Remote ledger rows: **29**.
+- Ledger rows with exactly one stored SQL statement: **29**.
+- Current active `supabase/migrations/` SQL files: **26**.
+- Same-version/name source files: **21**.
+- Of those 21, **12** match the ledger SQL after removing line comments and normalizing whitespace.
+- Of those 21, **9** differ from the ledger SQL after that normalization; their ledger payloads are preserved here.
+- The four timestamp-shifted Stage 5.5.2/5.7 candidates all match their ledger payloads after comment/whitespace normalization.
+- The four missing Stage 5.6 source files have their SQL statement payloads recovered directly from the ledger.
+- The repository-only `org_foundation` file has no matching ledger row and remains a separate baseline-provenance issue.
+
+The comparison is textual normalization, not a PostgreSQL parser or semantic equivalence proof. Any differing source file must be reviewed against the recovered ledger payload; do not silently overwrite it.
 
 ## Safety
 
