@@ -25,4 +25,6 @@ There are currently no active administrator memberships. The national seat's app
 - End-to-end tests using real accounts at each level.
 - SMTP delivery test after configuration.
 
-Migration: `supabase/migrations/20261121142100_stage5_3_admin_appointment_approval_engine.sql`
+Applied migrations:
+- `supabase/migrations/20261121132238_stage5_3_admin_appointment_approval_engine.sql`
+- `supabase/migrations/20261121132415_stage5_3_1_harden_admin_appointment_rpc_wrappers.sql`
