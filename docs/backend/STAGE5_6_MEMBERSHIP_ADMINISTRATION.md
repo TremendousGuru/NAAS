@@ -154,4 +154,4 @@ Implemented the member-facing cancellation RPC and hardened both administrator r
 3. Test complete workflows and role boundaries with controlled test accounts.
 4. Build the member administration UI in the frontend phase.
 
-**Important:** Stage 5.6.3's database engine is implemented, but the whole Stage 5.6 feature set is not yet complete.
+**Important:** Stages 5.6.3–5.6.5 implement the membership transfer and status-management database workflows. The whole Stage 5.6 feature set is not yet complete.
