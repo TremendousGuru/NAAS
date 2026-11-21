@@ -1,0 +1,7 @@
+
+create index if not exists membership_events_actor_user_idx on public.membership_events(actor_user_id);
+create index if not exists membership_events_related_transfer_idx on public.membership_events(related_transfer_id);
+create index if not exists membership_transfer_destination_reviewer_idx on public.membership_transfer_requests(destination_reviewed_by);
+create index if not exists membership_transfer_result_membership_idx on public.membership_transfer_requests(resulting_membership_id);
+create index if not exists membership_transfer_source_membership_idx on public.membership_transfer_requests(source_membership_id);
+create index if not exists membership_transfer_source_reviewer_idx on public.membership_transfer_requests(source_reviewed_by);
