@@ -12,6 +12,8 @@
 - Rejections preserve the incumbent and record the reviewer decision.
 - One pending request per position is enforced by a partial unique index.
 - RLS is enabled on every new public table; writes occur only through authenticated RPCs.
+- Approving presidents can see pending items in their jurisdictional inbox.
+- Approved leadership transitions generate a platform-visible announcement event for signed-in members.
 - Private SECURITY DEFINER functions have explicit authentication checks, empty search_path, and restricted execute grants.
 
 ## Database objects
