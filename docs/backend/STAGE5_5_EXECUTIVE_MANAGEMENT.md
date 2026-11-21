@@ -13,17 +13,20 @@
 ## Database objects
 - `public.org_executive_portfolios`
 - Added `portfolio_id` and `appointment_notes` to `public.org_leadership_positions`
+- Scoped term update RPC: `public.set_executive_term`
 - RPCs: `public.save_executive_portfolio`, `public.get_org_executive_directory`
 - Private implementation functions with restricted execute grants.
 
 ## Applied migrations
 - `20261121140551_stage5_5_executive_portfolios_directory_term_management`
 - `20261121140620_stage5_5_1_harden_directory_rpc_and_fk_indexes`
+- `20261121140642_stage5_5_2_scoped_executive_term_updates`
 
 ## Security and verification
 - RLS enabled on the new public portfolio table.
 - Portfolio reads require active organization membership or administrative jurisdiction.
-- Portfolio writes are only possible through the authenticated RPC, which verifies `private.can_administer_org`.
+- Portfolio writes and executive term changes are only possible through authenticated RPCs, which verify `private.can_administer_org`.
+- Term updates only apply to active appointments and reject end dates earlier than the appointment start.
 - Directory access requires authentication plus active membership or administrative jurisdiction.
 - Public/anon cannot execute either RPC.
 - Directory RPC is a SECURITY INVOKER API wrapper; its private SECURITY DEFINER implementation validates organization scope before returning only display-name/avatar fields and executive data.
@@ -43,5 +46,5 @@
 2. The administrator submits an initial appointment through the existing Stage 5.4 handover RPC.
 3. The nominee must already have an active organization membership and verified email.
 4. The parent-level authority reviews the appointment.
-5. Upon approval, the position becomes active and term dates can be maintained.
+5. Upon approval, the position becomes active and term end dates and appointment notes can be maintained by an authorized administrator.
 6. Handover requests use the same approval chain and preserve the audit history.
