@@ -95,13 +95,14 @@ Database changes:
 Applied migrations:
 - `20261121145523_stage5_6_4_membership_status_lifecycle` — [SQL migration](../../supabase/migrations/20261121145523_stage5_6_4_membership_status_lifecycle.sql)
 - `20261121145544_stage5_6_4_membership_status_actor_index` — [SQL migration](../../supabase/migrations/20261121145544_stage5_6_4_membership_status_actor_index.sql)
+- `20261121145638_stage5_6_4_1_reject_null_status_action` — [SQL migration](../../supabase/migrations/20261121145638_stage5_6_4_1_reject_null_status_action.sql)
 
 Verification:
 - Both migrations applied successfully.
 - Confirmed the three new membership columns and the event-type constraint.
 - Confirmed public wrapper is SECURITY INVOKER and private implementation is SECURITY DEFINER.
 - Confirmed authenticated role can execute the public RPC and anonymous role cannot; the private implementation is not executable by anon.
-- Unauthenticated-call guard test passed (SQLSTATE 28000); no membership rows were changed or seeded.
+- Unauthenticated-call guard test passed (SQLSTATE 28000); explicit NULL-action rejection test passed (SQLSTATE 22023); no membership rows were changed or seeded.
 - Security advisor: zero findings. Health advisor: zero findings.
 - Performance advisor initially identified the new status-actor foreign key as unindexed; added the covering index. Remaining performance notices are informational unused-index reports.
 
