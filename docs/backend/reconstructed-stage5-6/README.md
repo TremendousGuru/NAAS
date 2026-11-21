@@ -1,3 +1,5 @@
+> **Historical status update — 21 November 2026:** The remote Supabase migration ledger's `statements` array was subsequently inspected read-only. It contains the applied SQL payloads for all four Stage 5.6 ledger versions. Those payloads are preserved under [`docs/backend/recovered-ledger-statements/`](../recovered-ledger-statements/README.md). For historical applied-SQL evidence, use the ledger-recovered payloads, not these reconstructed drafts. The files in this folder remain as a record of the owner-approved reconstruction exercise; they are not originals, not canonical applied source, and must never be replayed.
+
 # NAASCONNECT Stage 5.6 — Reconstructed SQL Evidence Package
 
 **Disposition:** Reconstructed evidence only; not recovered originals and not approved migrations.  
