@@ -191,9 +191,52 @@ Both public wrappers are SECURITY INVOKER and delegate to private-schema SECURIT
 
 **Testing limitation:** No real administrator accounts were available to verify the positive cases for national/union/zone/campus/church administrators. Before production UI release, run controlled positive and negative scope tests for each administrator level, confirm descendant inclusion and sibling/parent exclusion, verify pagination/search/status filters against known test fixtures, and review whether the approved directory fields match NAAS privacy policy.
 
+
+### Stage 5.6.7 — Organization-level review queues and membership reporting
+
+Added two authenticated RPCs:
+- `public.get_membership_review_queue(p_org_id, p_search, p_from, p_to, p_limit, p_offset)`
+- `public.get_membership_activity_report(p_org_id, p_from, p_to)`
+
+**Review queue**
+- Reads pending `org_memberships` records in the requested organization and all descendants in its hierarchy.
+- Supports prefix search by member display name or institution, optional requested-at date range, and pagination (1–100 rows; bounded offset).
+- Orders oldest pending applications first so long-waiting requests surface before newer requests.
+- Returns only membership ID, organization identity/name/type, display name, institution, course, study level, requested role and request timestamp.
+- Does not return email, phone, profile UUID, state of origin, auth metadata, or audit details.
+- This is a read-only review queue; approval/rejection continues through the existing membership review/status workflows and is not duplicated here.
+
+**Membership activity report**
+- Returns all-time membership totals and pending/active/suspended/ended counts for the authorized organization subtree.
+- Returns activity-event counts by event type for the optional date range, plus per-organization membership/status totals and event counts for the same period.
+- Reads existing `membership_events` audit records; it does not create or mutate audit events.
+- Contains aggregate data only, with no member-level identifiers.
+
+**Authorization and privacy**
+- Both public RPCs are SECURITY INVOKER wrappers around private-schema SECURITY DEFINER implementations.
+- Each private implementation requires a non-null `auth.uid()` and independently calls `private.can_administer_org(p_org_id)`.
+- Scope includes the requested organization and descendants only; sibling or unrelated organizations are excluded by the recursive scope query.
+- Anonymous execution is revoked and authenticated execution explicitly granted. The private implementation uses an empty search path and schema-qualified tables.
+- No direct table grants, broader RLS policies, or new personal-data fields were introduced.
+
+**Indexes and migration**
+- Added partial index `org_memberships_org_pending_created_idx` for pending review queue ordering.
+- Added `membership_events_org_created_idx` and `membership_events_org_type_created_idx` for organization/date and event-type reporting.
+- Applied migration `20261121150817_stage5_6_7_org_membership_review_queues_and_reporting` — [SQL migration](../../supabase/migrations/20261121150817_stage5_6_7_org_membership_review_queues_and_reporting.sql).
+
+**Verification**
+- Confirmed migration history and queue/report RPC definitions.
+- Confirmed authenticated role can execute both public RPCs; anonymous role cannot.
+- Confirmed unauthenticated queue and report calls are rejected (SQLSTATE 28000).
+- Confirmed null organization scope is rejected (SQLSTATE 22023).
+- Confirmed unauthorized organization scope is rejected (SQLSTATE 42501).
+- Security advisor: zero findings. Health advisor: zero findings. Performance advisor reports informational unused-index notices; no new missing-index or unindexed-FK finding was reported.
+- No production memberships, member profiles or audit rows were inserted or modified.
+
+**Testing limitation:** The project does not yet have controlled administrator accounts and representative pending-membership fixtures for positive E2E coverage. Before production release, test national/union/zone/campus/church administrators against known fixtures; verify descendant visibility and sibling/parent exclusion, date/search filters, pagination, oldest-first ordering and report totals. The audit-event report currently has no event fixtures to validate non-zero event counts.
+
 ## Remaining Stage 5.6 work
 
-2. Add organization-level membership review queues and reporting.
 3. Test complete workflows and role boundaries with controlled test accounts.
 4. Build the member administration UI in the frontend phase.
 
