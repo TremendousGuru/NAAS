@@ -50,9 +50,9 @@ The public RPC is a `SECURITY INVOKER` wrapper. The implementation is held in th
 
 ## Applied migrations
 
-- `20261121151800_stage5_6_membership_transfer_and_history_foundation`
-- `20261121151900_stage5_6_1_lock_transfer_updates_pending_scoped_rpc`
-- `20261121152000_stage5_6_2_membership_fk_performance_indexes`
+- `20261121142038_stage5_6_membership_transfer_and_history_foundation` (recorded in Supabase ledger; original SQL file not present in repository)
+- `20261121142049_stage5_6_1_lock_transfer_updates_pending_scoped_rpc` (recorded in Supabase ledger; original SQL file not present in repository)
+- `20261121142125_stage5_6_2_membership_fk_performance_indexes` (recorded in Supabase ledger; original SQL file not present in repository)
 - `20261121145225_stage5_6_3_transactional_membership_transfer_review`
 
 ## Verification
@@ -241,3 +241,10 @@ Added two authenticated RPCs:
 4. Build the member administration UI in the frontend phase.
 
 **Important:** Stages 5.6.3–5.6.5 implement the membership transfer and status-management database workflows. The whole Stage 5.6 feature set is not yet complete.
+
+
+### Migration source integrity note — 21 November 2026
+
+The three Stage 5.6.0–5.6.2 version references above have been corrected to match the read-only Supabase migration ledger. Their original SQL files are not currently present in the repository or available inspected commit history. The Stage 5.6.3 applied migration `20261121145225` is also absent from the repository. Do not recreate these files and claim they are original, and do not replay any of these migrations. See [Migration Source Integrity Forensic Report](MIGRATION_SOURCE_INTEGRITY_FORENSIC_REPORT.md) for the recovery gate and full evidence.
+
+**Migration synchronization remains blocked** until trusted original sources or a separately approved reconstructed-baseline procedure is available. Stage 5.9 audit-log implementation must not deploy a migration before that gate is passed.
