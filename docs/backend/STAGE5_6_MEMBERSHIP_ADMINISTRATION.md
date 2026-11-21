@@ -147,9 +147,52 @@ Implemented the member-facing cancellation RPC and hardened both administrator r
 
 **Testing limitation:** No controlled member/source-admin/destination-admin test accounts or transfer fixtures were available. Full end-to-end tests are still required for owner cancellation at both pending stages, non-owner cancellation denial, source and destination rejection, unrelated-admin denial, and successful two-stage approval. No production membership or transfer rows were seeded or changed during verification.
 
+
+### Stage 5.6.6 — Scoped membership directory, search and aggregate statistics
+
+Implemented two authenticated RPCs:
+- `public.get_scoped_membership_directory(p_org_id, p_search, p_membership_status, p_limit, p_offset)`
+- `public.get_scoped_membership_statistics(p_org_id)`
+
+Both public wrappers are SECURITY INVOKER and delegate to private-schema SECURITY DEFINER implementations. Each private implementation independently checks `auth.uid()` and calls the existing `private.can_administer_org(p_org_id)` authorization helper before reading any scoped membership data. The requested organization is the root of the scope; results include that organization and its descendants, with recursive path tracking to prevent loops if an unexpected hierarchy cycle exists.
+
+**Directory and search**
+- Returns paginated membership entries with a maximum page size of 100 and a bounded offset.
+- Supports prefix search over display name, institution name and course of study, plus an optional membership status filter (`pending`, `active`, `suspended`, `ended`).
+- Includes membership ID, display name, institution, course, study level, role, status, joined date and organization name/type.
+- Does not return user UUID, email address, phone number, state of origin, profile avatar URL, auth metadata, or membership audit/reviewer notes.
+- Search text is bounded to 100 characters; status values and pagination inputs are validated.
+
+**Aggregate statistics**
+- Returns total membership records and counts grouped by pending, active, suspended and ended status.
+- Returns per-organization counts for the requested organization and each descendant.
+- Contains no member-level identifiers or profile attributes.
+
+**Privacy and authorization**
+- Directory and statistics are administrator-only; ordinary members cannot call them successfully.
+- Authorization is checked against the requested scope on every invocation, not inferred from client-supplied roles or user-editable metadata.
+- A campus/zone/union/national administrator receives only their own organization subtree, according to the existing hierarchy helper.
+- No direct table grants or broader profile RLS policies were added.
+- The privileged implementation is isolated in the non-public `private` schema, uses an empty search path and fully qualified relations. Anonymous execution is revoked; authenticated execution is explicitly granted.
+
+**Indexes and migration**
+- Added prefix-search indexes on lowercased profile display name, institution and course fields.
+- Added `org_memberships(org_id,status)` to support scoped status counts and filters.
+- Applied migration `20261121150236_stage5_6_6_scoped_membership_directory_and_statistics` — [SQL migration](../../supabase/migrations/20261121150236_stage5_6_6_scoped_membership_directory_and_statistics.sql).
+
+**Verification**
+- Confirmed migration history, index definitions, RPC signatures and security modes.
+- Confirmed authenticated role can execute both public RPCs; anonymous role cannot.
+- Confirmed unauthenticated directory calls are rejected (SQLSTATE 28000).
+- Confirmed invalid page size is rejected (SQLSTATE 22023).
+- Confirmed unauthorized directory and statistics scopes are rejected (SQLSTATE 42501) using a non-privileged test identity.
+- Security advisor: zero findings. Health advisor: zero findings. Performance advisor: no new missing-index or unindexed-foreign-key finding; existing informational unused-index notices remain.
+- No test members, memberships or organizations were inserted or modified.
+
+**Testing limitation:** No real administrator accounts were available to verify the positive cases for national/union/zone/campus/church administrators. Before production UI release, run controlled positive and negative scope tests for each administrator level, confirm descendant inclusion and sibling/parent exclusion, verify pagination/search/status filters against known test fixtures, and review whether the approved directory fields match NAAS privacy policy.
+
 ## Remaining Stage 5.6 work
 
-1. Add scoped directory/search and aggregate membership statistics that disclose only approved profile fields.
 2. Add organization-level membership review queues and reporting.
 3. Test complete workflows and role boundaries with controlled test accounts.
 4. Build the member administration UI in the frontend phase.
