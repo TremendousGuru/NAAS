@@ -80,3 +80,24 @@ This file is therefore an **untracked repository artifact / likely superseded dr
 **Gate status: NOT PASSED.** The source recovery requirement is not yet satisfied. New database migrations are on hold.
 
 ---
+
+## 7. Owner-approved read-only reconstructed-baseline evidence capture — 21 November 2026
+
+The owner approved a read-only evidence snapshot and a separately documented reconstructed-baseline procedure. The snapshot was captured at 2026-11-21 16:07:29 UTC and committed separately:
+
+- [Read-only evidence snapshot and discrepancy report](RECONSTRUCTED_BASELINE_READ_ONLY_EVIDENCE_SNAPSHOT.md)
+- GitHub commit: `a30a45f08b91337e131bdd0119e454352adef2d3`
+
+The new capture reconfirmed:
+- 29 remote migration ledger records and 26 SQL files in the repository migration directory.
+- Four missing applied Stage 5.6 original SQL sources remain unrecovered.
+- 14 public tables, all with RLS enabled (none with FORCE RLS enabled).
+- Membership subsystem objects, scoped RLS policies, constraints, indexes, RPC wrappers/private implementations and current grants are present.
+- At capture, `org_units` had 24 rows; `org_memberships`, `profiles`, `membership_transfer_requests` and `membership_events` each had zero rows.
+- `public.admin_audit_logs` does not exist.
+- Security and health advisors returned zero lints.
+- The existing membership and leadership event/history tables remain the authoritative domain histories and must not be duplicated by Phase 5.9.
+
+This capture is a catalog-level evidence record, **not** a restorable database backup, a full schema-only export, or recovered historical SQL. The current-state baseline has not yet been created. A proper owner-controlled backup, complete schema-only export with hashes, and object-to-source reconciliation matrix are still required.
+
+**Updated disposition:** Read-only evidence snapshot captured. Historical migration synchronization remains **NOT PASSED**. No Supabase schema or migration-history changes, migration replay, paid branch creation, or Phase 5.9 DDL were performed. Any next database operation requires a separate explicit owner approval after the preservation/reconciliation package is reviewed.
