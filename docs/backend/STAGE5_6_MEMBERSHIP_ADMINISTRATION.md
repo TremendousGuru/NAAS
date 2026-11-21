@@ -98,7 +98,7 @@ Applied migrations:
 - `20261121145638_stage5_6_4_1_reject_null_status_action` — [SQL migration](../../supabase/migrations/20261121145638_stage5_6_4_1_reject_null_status_action.sql)
 
 Verification:
-- Both migrations applied successfully.
+- All three Stage 5.6.4 migrations applied successfully.
 - Confirmed the three new membership columns and the event-type constraint.
 - Confirmed public wrapper is SECURITY INVOKER and private implementation is SECURITY DEFINER.
 - Confirmed authenticated role can execute the public RPC and anonymous role cannot; the private implementation is not executable by anon.
@@ -110,10 +110,10 @@ Verification:
 
 ## Remaining Stage 5.6 work
 
-1. Add member-initiated cancellation and authorized rejection coverage with audit events.
-3. Add scoped directory/search and aggregate membership statistics that disclose only approved profile fields.
-4. Add organization-level membership review queues and reporting.
-5. Test complete workflows and role boundaries with controlled test accounts.
-6. Build the member administration UI in the frontend phase.
+1. Add member-initiated cancellation and complete authorized rejection coverage with audit events.
+2. Add scoped directory/search and aggregate membership statistics that disclose only approved profile fields.
+3. Add organization-level membership review queues and reporting.
+4. Test complete workflows and role boundaries with controlled test accounts.
+5. Build the member administration UI in the frontend phase.
 
 **Important:** Stage 5.6.3's database engine is implemented, but the whole Stage 5.6 feature set is not yet complete.
