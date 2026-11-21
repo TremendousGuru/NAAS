@@ -6,7 +6,7 @@
 - Added one reserved administrator seat for the national root, each union and each zone (24 seats total).
 - Each seat has a unique username, role, approval authority and reserved status.
 - Approval routing: national root appoints/approves union administrators; each union approves its zone administrators.
-- The geography is explicitly marked provisional in metadata and must be confirmed by NAAS/church authorities before public launch.
+- The geography is explicitly marked provisional in metadata and its organization status is pending; it must be confirmed by NAAS/church authorities before public launch.
 - Campus and local-church records are not fabricated; they will be added as verified institutions/locations are supplied or approved.
 
 ## Credential lifecycle
@@ -21,5 +21,5 @@ At handover, after the named appointee's email and appointment are verified, the
 - A future activation workflow must verify the appointee, issue credentials individually, require password replacement, and only then activate the matching `org_memberships` row.
 - The first provisional seed used only the supplied working list; it is not a certified official national directory.
 
-## Migration
-`supabase/migrations/20261121140100_stage5_provisional_geography_admin_seats.sql`
+## Applied migration
+`supabase/migrations/20261121130420_stage5_provisional_geography_admin_seats.sql`
