@@ -93,8 +93,8 @@ Database changes:
 - Reused the existing event constraint values `membership_suspended`, `membership_reactivated`, and `membership_ended`.
 
 Applied migrations:
-- `20261121145523_stage5_6_4_membership_status_lifecycle`
-- `20261121145524_stage5_6_4_membership_status_actor_index`
+- `20261121145523_stage5_6_4_membership_status_lifecycle` — [SQL migration](../../supabase/migrations/20261121145523_stage5_6_4_membership_status_lifecycle.sql)
+- `20261121145524_stage5_6_4_membership_status_actor_index` — [SQL migration](../../supabase/migrations/20261121145524_stage5_6_4_membership_status_actor_index.sql)
 
 Verification:
 - Both migrations applied successfully.
