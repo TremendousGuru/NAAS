@@ -29,6 +29,7 @@
 - `20261121134737_stage5_4_2_president_role_revocation_fix`
 - `20261121134747_stage5_4_3_leadership_fk_indexes`
 - `20261121134806_stage5_4_4_revoke_public_private_rpc_execution`
+- `20261121134918_stage5_4_5_approver_inbox_and_platform_announcements`
 
 ## Verification and current limitations
 - RLS is enabled on all four new public tables.
@@ -36,7 +37,7 @@
 - Supabase security advisor returned no findings after implementation.
 - Foreign-key index audit returned zero missing indexes.
 - No real leadership transition has been executed: there are currently no active administrator memberships, no authenticated test leaders and no leadership positions seeded. End-to-end approval/transfer tests require test accounts and a seeded test organization.
-- UI screens, email/push delivery and nationwide announcement fan-out remain frontend/notification-delivery work. This stage creates durable notification events, not outbound email.
+- UI screens and outbound email/push delivery remain frontend/notification-delivery work. This stage creates durable in-app notification events and a platform-visible announcement record; real-time fan-out and external email delivery are not yet configured.
 - Geographic records remain provisional/pending until formally confirmed; no live leadership has been invented or pre-populated.
 
 ## Operational rule
