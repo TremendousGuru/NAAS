@@ -179,3 +179,16 @@ A real email delivery and recovery test cannot be completed from repository insp
 ## Approval requested
 
 Please review the SQL proposal and explicitly approve or reject applying it to the live Supabase project. Until that separate approval is received, this SQL remains documentation only. No database migration, schema write, migration-ledger change, paid branch or service-role action has been performed.
+
+
+## Implementation and build verification update
+
+- Existing frontend now includes a profile editor using only columns already present on `profiles`.
+- The member dashboard reads the user's own membership rows, active organization directory and global statuses.
+- Membership intake continues to insert a pending basic-member row into the existing `org_memberships` table. Existing RLS permits only active campus/church destinations and prevents self-assigned admin roles.
+- Added a resend-confirmation action and sign-in UI. Password recovery remains on the existing reset-password flow; the PKCE callback establishes the recovery session before the password update.
+- The original Vercel deployment `dpl_3shZCVeWgkg4XzgcGJnXisBP66UA` failed because the imported `publishTextStatus` server action was missing.
+- Added the missing export and the profile-save action. Vercel deployment `dpl_Ao4dgpsPFJfuwk4WSWG5K6oTsumn` for commit `c83f3da4be1c02f7f488b39ae968360974f83953` reached **READY**. Its build log confirms TypeScript checking, static page generation and output deployment completed successfully.
+- This is a build verification only, not a controlled-account test of email delivery, password recovery, profile RLS, membership approval or production launch.
+
+The proposal SQL remains unapplied. No database changes were made.
