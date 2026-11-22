@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test("branded intro resolves to the unauthenticated sign-in route", async ({ page }, testInfo) => {
   const pageErrors: string[] = [];
@@ -27,6 +27,11 @@ test("login branding assets load and the layout fits the viewport", async ({ pag
     await expect(logo).toBeVisible();
     await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
   }
+  const imageFailures = await page.locator("img").evaluateAll(images =>
+    images.filter(img => !img.complete || img.naturalWidth === 0).map(img => img.getAttribute("src"))
+  );
+  expect(imageFailures, "Every rendered login image should load").toEqual([]);
+
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow, "The login page should not overflow horizontally").toBe(false);
   await page.screenshot({ path: `artifacts/login-${testInfo.project.name}.png`, fullPage: true });

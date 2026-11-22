@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.BASE_URL;
-if (!baseURL) throw new Error("BASE_URL must point to the exact Vercel deployment being inspected.");
+const baseURL = process.env.BASE_URL ?? "http://127.0.0.1:3000";
+const isLocal = new URL(baseURL).hostname === "127.0.0.1";
 
 export default defineConfig({
   testDir: "./tests/visual",
@@ -15,10 +15,13 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    extraHTTPHeaders: {
-      "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "",
-    },
   },
+  webServer: isLocal ? {
+    command: "npm run start -- --hostname 127.0.0.1",
+    url: baseURL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  } : undefined,
   projects: [
     { name: "desktop-chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } } },
     { name: "mobile-chromium", use: { ...devices["iPhone 13"], browserName: "chromium" } },
