@@ -5,6 +5,7 @@ set -uo pipefail
 
 REPOSITORY="TremendousGuru/NAAS"
 CONTEXT="naasconnect/predeploy-quality-gate"
+export CONTEXT
 COMMIT_SHA="${VERCEL_GIT_COMMIT_SHA:-}"
 
 if [[ ! "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
