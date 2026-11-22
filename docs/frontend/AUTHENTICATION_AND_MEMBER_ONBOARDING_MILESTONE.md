@@ -26,6 +26,7 @@ The root page is now a dynamic server component that verifies the Supabase user 
 - Callback rejects protocol-relative redirect destinations to prevent open redirects.
 - Password reset request and password update screens retained.
 - Authenticated member dashboard reads the signed-in profile, the user's own membership rows, and active global statuses through the existing RLS policies.
+- Campus/ASF and participating-church membership requests are available when verified active organization records exist. The server checks the requested organization type against the member category and submits only a pending basic-member role; existing RLS independently enforces self-request and organization eligibility.
 - Text status publishing is available only to users with an active membership; the server action verifies the user and active membership, while the existing database INSERT policy independently enforces the same boundary.
 - Supplied KJV and 4th Quarter 2026 Lesson Study PDF assets are linked from the member workspace.
 - Existing color system, typography direction, logo assets and favicon are retained.
@@ -48,6 +49,7 @@ The root page is now a dynamic server component that verifies the Supabase user 
 - The provisional geography records are not treated as verified or active organizations.
 - The app does not fabricate campus or church memberships where the live database has no active campus/church organizations.
 - A user cannot self-approve a membership or assign themselves an administrative role.
+- The inspected live database currently has no active campus or church organization records, so no member can submit an eligible membership request until authorized organization onboarding verifies and activates those records.
 - Status publishing remains unavailable until an active membership exists.
 - No Supabase database write, migration replay, migration-ledger edit, paid branch, or Edge Function deployment was performed in this milestone.
 
@@ -55,7 +57,7 @@ The root page is now a dynamic server component that verifies the Supabase user 
 
 1. Design and approve a durable member onboarding-intake record for student/non-student classification and preferred zone/campus/church. Current Auth metadata is not a substitute for a formal review queue.
 2. Approve and verify provisional unions/zones and add the real campus/ASF and church organization records through authorized onboarding.
-3. Add an authorized, transactional membership-request path that can route applicants to the correct jurisdiction without allowing self-approval.
+3. Add an authorized review queue and transactional approval/rejection action for pending membership requests, routed to the responsible jurisdiction without allowing self-approval.
 4. Add member-facing profile editing and multi-membership request/transfer screens.
 5. Add status media upload, view tracking, reactions and moderation, using private storage policies and approved retention limits.
 6. Connect real admin review queues, org management, leadership appointments and audit reporting to their existing RPCs.
