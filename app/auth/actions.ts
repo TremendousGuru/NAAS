@@ -84,3 +84,17 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+export async function resendConfirmation(formData: FormData) {
+  const email = safeText(formData.get("email"), 254).toLowerCase();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!email || !siteUrl) redirect("/login?error=Enter%20your%20email%20address");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: new URL("/auth/callback", siteUrl).toString() },
+  });
+  if (error) redirect("/login?error=We%20could%20not%20resend%20the%20confirmation.%20Check%20the%20address%20or%20try%20again%20later.");
+  redirect("/login?message=If%20the%20account%20is%20awaiting%20verification,%20a%20new%20confirmation%20email%20has%20been%20sent.");
+}
