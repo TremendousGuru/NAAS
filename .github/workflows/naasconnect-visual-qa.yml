@@ -1,0 +1,77 @@
+name: NAASCONNECT post-deployment visual QA
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      deployment_url:
+        description: Exact existing Vercel preview URL to inspect (does not create a deployment)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  visual-qa:
+    if: (github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out deployed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'deployment_status' && github.event.deployment.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Resolve exact deployment URL
+        id: deployment
+        env:
+          EVENT_ENVIRONMENT_URL: ${{ github.event.deployment_status.environment_url }}
+          EVENT_TARGET_URL: ${{ github.event.deployment_status.target_url }}
+          MANUAL_URL: ${{ inputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          URL="${MANUAL_URL:-${EVENT_ENVIRONMENT_URL:-$EVENT_TARGET_URL}}"
+          if [ -z "$URL" ]; then
+            echo "::error::Provide an exact deployment URL or use a Vercel deployment status event."
+            exit 1
+          fi
+          node -e 'const u = new URL(process.argv[1]); if (u.protocol !== "https:") process.exit(1)' "$URL"
+          echo "base_url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Require Vercel preview access
+        run: |
+          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            echo "::error::Add VERCEL_AUTOMATION_BYPASS_SECRET to GitHub Actions secrets so protected Vercel previews can be inspected."
+            exit 1
+          fi
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+      - name: Install pinned browser test runner
+        run: |
+          npm install --no-save --no-package-lock @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Inspect deployed desktop and mobile experience
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.base_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+      - name: Upload screenshots and test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: naasconnect-visual-qa-${{ github.run_number }}
+          path: |
+            artifacts/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
