@@ -19,7 +19,8 @@ export default async function AuthenticatedApp(){
  const [profileResult,membershipResult,statusResult,organizationResult]=await Promise.all([
   supabase.from("profiles").select("display_name,phone,institution_name,course_of_study,level_of_study,profile_completed").eq("id",user.id).maybeSingle(),
   supabase.from("org_memberships").select("id,org_id,role,status,org_units(name,org_type)").eq("user_id",user.id).order("created_at",{ascending:false}),
-  supabase.from("community_statuses").select("id,content,media_url,created_at,expires_at,author_org_id").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(30)
+  supabase.from("community_statuses").select("id,content,media_url,created_at,expires_at,author_org_id").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(30),
+  supabase.from("org_units").select("id,name,org_type,state_name").eq("status","active").in("org_type",["campus","church"]).order("name")
  ]);
  const profile=profileResult.data;
  const rows=(membershipResult.data??[]) as unknown as Membership[];
