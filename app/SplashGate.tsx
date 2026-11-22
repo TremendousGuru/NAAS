@@ -1,27 +1,39 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SplashGate() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
   useEffect(() => {
-    let destination = "/login";
     let active = true;
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) destination = "/app";
-    }).catch(() => undefined);
-    const timer = window.setTimeout(() => { if (active) router.replace(destination); }, 5000);
-    return () => { active = false; window.clearTimeout(timer); };
+    const resolveDestination = async () => {
+      let destination = "/login";
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase.auth.getSession();
+        if (!error && data.session) destination = "/app";
+      } catch {
+        destination = "/login";
+      }
+      if (active) {
+        setChecking(false);
+        router.replace(destination);
+      }
+    };
+    void resolveDestination();
+    return () => { active = false; };
   }, [router]);
-  return <main className="launch-screen" aria-label="Loading NAASCONNECT">
-    <div className="launch-glow"/>
+
+  return <main className="launch-screen" aria-label="Loading NAASCONNECT" aria-busy={checking}>
+    <div className="launch-glow" aria-hidden="true"/>
     <div className="launch-content">
       <Image src="/brand/naasconnect-logo.png" alt="NAASCONNECT Nigeria" width={300} height={100} priority className="launch-logo"/>
-      <div className="launch-progress"><span/></div>
+      <div className="launch-progress" role="progressbar" aria-label="Preparing your NAASCONNECT experience"><span/></div>
       <p>CONNECTING FAITH · FELLOWSHIP · SERVICE</p>
       <small>NAASCONNECT NIGERIA</small>
     </div>
