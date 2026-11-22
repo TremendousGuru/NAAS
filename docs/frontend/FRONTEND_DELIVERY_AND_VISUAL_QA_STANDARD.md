@@ -72,7 +72,7 @@ Create/copy this value from the Vercel project's Deployment Protection settings.
 
 ## Known scope limitations
 
-The first automated gate covers the intro and login pages plus desktop/mobile rendering basics. It does not yet prove the authenticated dashboard, profile editing, onboarding form branches, admin review workflows, status composer, image upload, accessibility conformance, or real email/session journeys. Those checks will be added alongside the corresponding feature milestones and must use controlled test accounts/fixtures without exposing real member data.
+The browser QA harness lives outside the Next.js application typecheck: `tests/` and `playwright.config.ts` are explicitly excluded from the app's `tsconfig.json` compilation because Playwright is installed only in the GitHub Actions runner. This avoids adding a test-only dependency to the production application bundle. The first automated gate covers the intro and login pages plus desktop/mobile rendering basics. It does not yet prove the authenticated dashboard, profile editing, onboarding form branches, admin review workflows, status composer, image upload, accessibility conformance, or real email/session journeys. Those checks will be added alongside the corresponding feature milestones and must use controlled test accounts/fixtures without exposing real member data.
 
 The CI workflow uses a pinned Playwright version and does not add a permanent dependency to the application's package manifest or lockfile. GitHub Actions still consumes runner minutes and artifact storage; it does not create an additional Vercel deployment.
 
