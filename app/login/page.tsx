@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { signIn, signUp, requestPasswordReset } from "@/app/auth/actions";
+import { signIn, signUp, requestPasswordReset, resendConfirmation } from "@/app/auth/actions";
 import RegistrationFields from "./RegistrationFields";
 
 type Props = { searchParams: Promise<{ mode?: string; error?: string; message?: string }> };
@@ -21,7 +21,7 @@ export default async function LoginPage({ searchParams }: Props) {
       {mode==="reset" ? <form action={requestPasswordReset} className="auth-form"><label>Email address<input name="email" type="email" autoComplete="email" required placeholder="you@example.com"/></label><button type="submit">Send reset link</button></form> :
       mode==="signup" ? <form action={signUp} className="auth-form"><label>Full name<input name="display_name" required autoComplete="name" placeholder="Your full name"/></label><label>Phone number<input name="phone" type="tel" required autoComplete="tel" placeholder="+234 800 000 0000"/></label><label>Email address<input name="email" type="email" required autoComplete="email" placeholder="you@example.com"/></label><RegistrationFields/><label>Password<input name="password" type="password" minLength={10} required autoComplete="new-password" placeholder="At least 10 characters"/></label><button type="submit">Create account</button></form> :
       <form action={signIn} className="auth-form"><label>Email address<input name="email" type="email" required autoComplete="username" placeholder="you@example.com"/></label><label>Password<input name="password" type="password" required autoComplete="current-password" placeholder="Enter your password"/></label><div className="auth-inline"><Link href="/login?mode=reset">Forgot password?</Link></div><button type="submit">Sign in securely</button></form>}
-      <div className="auth-switch">{mode==="login"?<>New to NAASCONNECT? <Link href="/login?mode=signup">Create an account</Link></>:<>Already have an account? <Link href="/login">Sign in</Link></>}</div>
+      <div className="auth-switch">{mode==="login"?<>New to NAASCONNECT? <Link href="/login?mode=signup">Create an account</Link></>:<>Already have an account? <Link href="/login">Sign in</Link></>}</div>{mode==="login"&&<form action={resendConfirmation} className="auth-resend-form"><label>Didn’t receive your verification email?<input name="email" type="email" required placeholder="Enter your registration email"/></label><button type="submit">Resend confirmation email</button></form>}
       <p className="auth-security">Your access is protected by Supabase authentication and organization-scoped permissions. Creating an account does not automatically grant administrator privileges.</p>
     </div></section>
   </main>;
