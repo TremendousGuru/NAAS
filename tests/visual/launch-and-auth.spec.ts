@@ -23,7 +23,7 @@ test("login branding assets load and the layout fits the viewport", async ({ pag
   await page.goto("/login", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Sign in to continue" })).toBeVisible();
   for (const name of ["NAAS", "NAASCONNECT"]) {
-    const logo = page.getByRole("img", { name });
+    const logo = page.getByRole("img", { name, exact: true });
     await expect(logo).toBeVisible();
     await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
   }
