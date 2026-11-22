@@ -78,3 +78,6 @@
 
 
 .member-membership-request{border:1px solid #e6ecf5;background:#fbfcff;border-radius:9px;padding:13px;margin-top:14px}.member-membership-request> b{font-size:10px;color:#53627a}.member-membership-request>p{font-size:9px;color:#8793a5;line-height:1.6;margin:5px 0 10px}.member-membership-request form{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #edf0f5;padding:10px 0}.member-membership-request form span{display:flex;flex-direction:column;gap:4px}.member-membership-request form b{font-size:10px;color:#3d4c64}.member-membership-request form small,.member-membership-request>small{font-size:8px;color:#8996a8}.member-membership-request button{border:1px solid #d6e1f2;background:#fff;color:#3158a7;border-radius:7px;padding:7px 9px;font-size:8px;font-weight:700;white-space:nowrap}
+
+
+.admin-route-main{max-width:1320px}.admin-return-link{display:inline-block;text-decoration:none;color:#6f83a7;font-size:10px;margin-bottom:15px}.admin-live-scope{display:flex;flex-direction:column;gap:5px;padding:13px 15px;margin-bottom:18px;border:1px solid #dfe7f4;border-radius:9px;background:#f8faff}.admin-live-scope b{font-size:10px;color:#455b82}.admin-live-scope span{font-size:10px;color:#50617b;text-transform:capitalize}.admin-live-scope small{font-size:9px;color:#8996a8;line-height:1.5}
