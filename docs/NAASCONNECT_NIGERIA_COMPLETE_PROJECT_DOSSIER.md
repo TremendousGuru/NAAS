@@ -1509,3 +1509,783 @@ The recovered payload archive and the out-of-band foundation log archive remain 
 5. Complete Phase 5.9 P1 audit-governance decisions before implementation.
 
 **Database-write approval gate: CLOSED.** Passing this evidence review does not itself authorize a database write. NAASCONNECT V1.0 remains the source of truth.
+
+
+# ADDITIONAL SOURCE DOCUMENTS — AUTHENTICATION, ADMINISTRATION, LEADERSHIP AND PHASE 5.9
+
+
+
+---
+
+# SOURCE DOCUMENT: docs/backend/STAGE5_2_AUTH_ONBOARDING.md
+
+# NAASCONNECT Stage 5.2 — Authentication and Onboarding Foundation
+
+## Database implementation
+- `profiles`: private, per-user profile fields; users can read/update only their own row.
+- An `auth.users` insert trigger creates a minimal profile using display-name metadata only. It does not assign roles or privileges.
+- `org_applications`: records applications to establish unions, zones, campuses and churches. The applicant can read their own application; the administrator chain for the parent organization can review it.
+- `org_memberships`: users can request basic membership in an active campus or local church. Requests are always pending and constrained to the basic member role (church requests use `church_member`). This does not grant access until an authorized administrator approves the membership.
+- Anonymous table access is revoked and RLS is enabled on both new tables.
+- Membership INSERT authorization is consolidated into one policy; application foreign-key columns are indexed.
+
+## Approval routing encoded
+The applicant selects a parent organization:
+- Union application → national parent administrator.
+- Zone application → union parent administrator.
+- Campus or local church application → zone parent administrator.
+
+The database records the application and enforces who can read/review it through the existing `private.can_administer_org(parent_org_id)` helper.
+
+## Important boundary
+These migrations do not create or activate Auth users for the 24 reserved administrator seats. They do not create administrator credentials. The agreed temporary handover password is not stored in the database. Admin activation must be implemented as a trusted server-side workflow after identity and appointment verification.
+
+## Still required before production
+1. Confirm Supabase Auth email confirmation is enabled.
+2. Configure allowed production and preview redirect URLs.
+3. Configure a production email sender (SMTP) and branded confirmation template.
+4. Implement server-side invitation/activation for administrator seats using Supabase Auth Admin API; never expose a secret/service-role key in the browser.
+5. Implement an atomic approval operation that creates/activates the organization or membership and records reviewer identity/time. Applicants must not be able to self-approve.
+6. Add integration tests for applicant, unrelated user, correct jurisdiction admin, wrong jurisdiction admin, and unauthenticated access.
+
+## Applied migration files
+- `supabase/migrations/20261121131034_stage5_2_profiles_org_applications_member_onboarding.sql`
+- `supabase/migrations/20261121131101_stage5_2_1_onboarding_policy_and_fk_indexes.sql`
+- `supabase/migrations/20261121131109_stage5_2_2_limit_self_membership_to_campus_church.sql`
+
+
+---
+
+# SOURCE DOCUMENT: docs/backend/STAGE5_3_ADMIN_APPOINTMENTS.md
+
+# NAASCONNECT Stage 5.3 — Administrator Appointment & Activation
+## Implemented
+- `admin_appointment_requests` records nominee, jurisdictional review, invitation and acceptance states.
+- `submit_admin_appointment` requires authentication and verifies authority over the seat's approval organization.
+- `review_admin_appointment` allows only the higher-level authorized administrator to approve/reject.
+- Approval moves the seat to `awaiting_appointee`; rejection returns it to `reserved`.
+- The JWT-protected `admin-appointment` Edge Function sends invitations for approved nominees and activates a pending admin membership only after the invited user signs in and accepts.
+- The service-role key remains server-side.
+- RLS permits the requesting administrator and the relevant approval authority to read requests; anonymous access is revoked.
+
+## Required before real invitations
+- Configure production SMTP and Supabase Auth email provider.
+- Configure Site URL and redirect allow-list for the production Vercel domain.
+- Set Edge Function secret `APP_ORIGIN` to the exact production origin.
+- Confirm function environment contains Supabase URL, anon key and service-role key.
+- Nominees must set their own personal passwords; do not distribute a shared default password as a reusable credential.
+
+## First national administrator bootstrap
+There are currently no active administrator memberships. The national seat's approval authority points to the national root, so it cannot self-approve its first administrator. That first appointment requires a separately controlled owner/church-authority verification and bootstrap. Subsequent appointments follow the normal approval chain.
+
+## Remaining
+- Frontend appointment/review/invite screens and invitation acceptance UI.
+- Mandatory profile/password completion UX.
+- Leadership handover workflow is implemented in `docs/backend/STAGE5_4_LEADERSHIP_HANDOVER.md`.
+- End-to-end tests using real accounts at each level.
+- SMTP delivery test after configuration.
+
+Applied migrations:
+- `supabase/migrations/20261121132238_stage5_3_admin_appointment_approval_engine.sql`
+- `supabase/migrations/20261121132415_stage5_3_1_harden_admin_appointment_rpc_wrappers.sql`
+
+
+---
+
+# SOURCE DOCUMENT: docs/backend/STAGE5_4_LEADERSHIP_HANDOVER.md
+
+# NAASCONNECT Nigeria — Stage 5.4: Leadership Handover & Executive Management
+
+## Scope implemented
+- Data-driven leadership positions for national, union, zone, campus and church organizations.
+- Initial appointment into vacant positions and formal handover from an incumbent.
+- Incoming nominee must already have an active membership in the organization and a verified Supabase Auth email.
+- Campus/church transitions route to the parent zone; zone transitions route to the parent union; union transitions route to the national organization.
+- National-level transitions require a distinct national administrator or national president to approve.
+- The submitter cannot approve their own request; the outgoing incumbent cannot approve their own replacement.
+- Approval is transactional: the active position holder changes, history is recorded, and notification events are written in the same database transaction.
+- A president transition moves the organization's admin membership from the outgoing president to the incoming president and activates the reserved admin seat.
+- Rejections preserve the incumbent and record the reviewer decision.
+- One pending request per position is enforced by a partial unique index.
+- RLS is enabled on every new public table; writes occur only through authenticated RPCs.
+- Approving presidents can see pending items in their jurisdictional inbox.
+- Approved leadership transitions generate a platform-visible announcement event for signed-in members.
+- Private SECURITY DEFINER functions have explicit authentication checks, empty search_path, and restricted execute grants.
+
+## Database objects
+- `org_leadership_positions`
+- `leadership_handover_requests`
+- `leadership_history`
+- `leadership_notification_events`
+- RPCs: `submit_leadership_handover`, `review_leadership_handover`
+
+## Applied Supabase migrations
+- `20261121134717_stage5_4_leadership_handover_executive_management`
+- `20261121134728_stage5_4_1_handover_security_and_review_fixes`
+- `20261121134737_stage5_4_2_president_role_revocation_fix`
+- `20261121134747_stage5_4_3_leadership_fk_indexes`
+- `20261121134806_stage5_4_4_revoke_public_private_rpc_execution`
+- `20261121134918_stage5_4_5_approver_inbox_and_platform_announcements`
+
+## Verification and current limitations
+- RLS is enabled on all four new public tables.
+- Public RPC wrappers are authenticated-only; private implementation grants were explicitly revoked from PUBLIC/anon.
+- Supabase security advisor returned no findings after implementation.
+- Foreign-key index audit returned zero missing indexes.
+- No real leadership transition has been executed: there are currently no active administrator memberships, no authenticated test leaders and no leadership positions seeded. End-to-end approval/transfer tests require test accounts and a seeded test organization.
+- UI screens and outbound email/push delivery remain frontend/notification-delivery work. This stage creates durable in-app notification events and a platform-visible announcement record; real-time fan-out and external email delivery are not yet configured.
+- Geographic records remain provisional/pending until formally confirmed; no live leadership has been invented or pre-populated.
+
+## Operational rule
+Do not activate real officers until the national bootstrap and jurisdictional administrator appointments are completed. Seed initial positions through the approved administrative workflow, then process handovers through the parent-level approval chain.
+
+
+---
+
+# SOURCE DOCUMENT: docs/backend/STAGE5_5_EXECUTIVE_MANAGEMENT.md
+
+# NAASCONNECT Nigeria — Stage 5.5: Executive Onboarding & Organizational Management
+
+## Implemented
+- Organization-scoped executive portfolio catalogue.
+- Portfolio title, description, responsibilities, display order, required/optional flag, and suggested term duration (1–60 months).
+- Administrative save/upsert RPC guarded by `private.can_administer_org`, preserving jurisdictional hierarchy.
+- Existing leadership positions can be linked to matching portfolio keys; current holder and handover authority remain controlled by Stage 5.4.
+- Member-visible executive directory RPC returns only position details and public profile fields, and only to active members of that organization or administrators with jurisdiction.
+- Directory computes term indicators: vacant, active without end date, term ending within 60 days, and expired.
+- Existing Stage 5.4 initial appointment/handover requests remain the only route for assigning a person to a position. A new executive must be an active member with verified email; approval follows the parent-level chain.
+- New foreign-key and term indexes.
+
+## Database objects
+- `public.org_executive_portfolios`
+- Added `portfolio_id` and `appointment_notes` to `public.org_leadership_positions`
+- Scoped term update RPC: `public.set_executive_term`
+- RPCs: `public.save_executive_portfolio`, `public.get_org_executive_directory`
+- Private implementation functions with restricted execute grants.
+
+## Applied migrations
+- `20261121140551_stage5_5_executive_portfolios_directory_term_management`
+- `20261121140620_stage5_5_1_harden_directory_rpc_and_fk_indexes`
+- `20261121140642_stage5_5_2_scoped_executive_term_updates`
+
+## Security and verification
+- RLS enabled on the new public portfolio table.
+- Portfolio reads require active organization membership or administrative jurisdiction.
+- Portfolio writes and executive term changes are only possible through authenticated RPCs, which verify `private.can_administer_org`.
+- Term updates only apply to active appointments and reject end dates earlier than the appointment start.
+- Directory access requires authentication plus active membership or administrative jurisdiction.
+- Public/anon cannot execute either RPC.
+- Directory RPC is a SECURITY INVOKER API wrapper; its private SECURITY DEFINER implementation validates organization scope before returning only display-name/avatar fields and executive data.
+- Security advisor: no remaining findings after the hardening migration.
+- Health advisor: no findings.
+- Performance advisor: new foreign-key indexes added. Unused-index notices are expected before application traffic.
+- No live executive or portfolio records were fabricated. Current portfolio count and leadership position count are both zero; actual rosters must be configured by authorized administrators.
+
+## Not yet delivered in this backend stage
+- Frontend appointment-review dashboards and executive management screens.
+- Automated email/push delivery and scheduled term-expiry reminders.
+- Real-account end-to-end approval tests require authenticated test users and a seeded test organization.
+- No standard portfolio catalogue was preloaded because official executive titles and portfolios may vary by organization and must be confirmed by NAAS leadership.
+
+## Operational workflow
+1. An authorized administrator configures the organization's executive portfolios and responsibilities.
+2. The administrator submits an initial appointment through the existing Stage 5.4 handover RPC.
+3. The nominee must already have an active organization membership and verified email.
+4. The parent-level authority reviews the appointment.
+5. Upon approval, the position becomes active and term end dates and appointment notes can be maintained by an authorized administrator.
+6. Handover requests use the same approval chain and preserve the audit history.
+
+
+---
+
+# SOURCE DOCUMENT: docs/backend/STAGE5_ADMIN_PROVISIONING.md
+
+# NAASCONNECT — Stage 5 Administrator Provisioning
+
+## Implemented
+- Added the three union records beneath the national root: WNUC, ENUC and NNUC.
+- Added 20 provisional zones from the project's supplied working territorial list: 9 Western, 3 Northern and 8 Eastern.
+- Added one reserved administrator seat for the national root, each union and each zone (24 seats total).
+- Each seat has a unique username, role, approval authority and reserved status.
+- Approval routing: national root appoints/approves union administrators; each union approves its zone administrators.
+- The geography is explicitly marked provisional in metadata and its organization status is pending; it must be confirmed by NAAS/church authorities before public launch.
+- Campus and local-church records are not fabricated; they will be added as verified institutions/locations are supplied or approved.
+
+## Credential lifecycle
+The agreed default password `123456789` is retained as a temporary handover bootstrap credential policy. It is NOT stored in this table, source code, metadata or plaintext database fields, and no shared Auth accounts have been created. A reserved seat is not a login account.
+
+At handover, after the named appointee's email and appointment are verified, the controlled provisioning process may issue the agreed temporary credential. First successful sign-in must force a password change and completion of required profile details before privileged access is granted. The Auth password itself must be stored only by Supabase Auth (hashed); application data stores only credential lifecycle state. Do not send the common temporary credential in bulk or publish it.
+
+## Security and operational notes
+- `org_admin_seats` has RLS enabled and no anonymous table grants.
+- Authenticated SELECT is granted but row access is restricted to administrators who can administer the organization or its approval authority.
+- No user Auth accounts were created because no appointee names/emails have been supplied.
+- A future activation workflow must verify the appointee, issue credentials individually, require password replacement, and only then activate the matching `org_memberships` row.
+- The first provisional seed used only the supplied working list; it is not a certified official national directory.
+
+## Applied migration
+`supabase/migrations/20261121130420_stage5_provisional_geography_admin_seats.sql`
+
+
+---
+
+# SOURCE DOCUMENT: docs/backend/PHASE_5_9_COMPLETION_GATE_BRIEFING.md
+
+# NAASCONNECT Nigeria — Phase 5.9 Completion Gate Briefing
+
+**Review date:** 21 November 2026  
+**Authority:** NAASCONNECT Nigeria V1.0 and approved architecture  
+**Scope:** V1 Phase 5.9 — General Audit Logs  
+**Disposition:** DESIGN REVIEW COMPLETE; IMPLEMENTATION BLOCKED BY MIGRATION SOURCE-INTEGRITY GATE
+
+## 1. Executive decision
+
+Phase 5.9 has a coherent design specification and has been checked against the approved V1 architecture, existing membership and leadership history, the current GitHub migration set, and a fresh read-only Supabase inspection.
+
+It is **not complete or production-implemented**. The live database has no `public.admin_audit_logs` table or other object with an audit name in the public/private schemas. The remote migration ledger remains at 29 records. The four missing applied Stage 5.6 SQL sources, the repository-only `org_foundation` artifact, and the exact-source uncertainty for Stage 5.5.2/5.7 remain unresolved. The migration synchronization gate is still NOT PASSED.
+
+The owner's earlier instruction expressly prohibited Phase 5.9 DDL until that gate demonstrably passes. The current request to complete Phase 5.9 does not remove the technical precondition or provide evidence that it has passed. No Phase 5.9 DDL, migration replay, data change, or ledger modification was performed.
+
+## 2. Architecture alignment review
+
+The existing design in `V1_PHASE_5_9_GENERAL_AUDIT_LOGS_DESIGN.md` aligns with V1 in the following ways:
+
+- Provides a durable administrative/security audit trail across the organization hierarchy.
+- Uses organization-scoped visibility and the established `private.can_administer_org(target_org_id)` hierarchy authorization helper.
+- Does not create a second identity, role, membership, or organization model.
+- Does not replace the existing domain-specific histories.
+- Uses server-derived actor identity and timestamps; clients cannot submit actor, role, scope, timestamp, or unrestricted payload fields.
+- Keeps writes trusted, append-only for application roles, and transactionally coupled to the action where feasible.
+- Denies direct application-role insert/update/delete/truncate.
+- Avoids passwords, tokens, API keys, session secrets, raw auth metadata, and unnecessary personal data.
+- Requires explicit handling for platform-wide/null-target events rather than making them globally visible.
+- Requires controlled-account tests for positive and negative hierarchy boundaries.
+
+### No-duplication boundary
+
+These existing tables remain authoritative and must not be mirrored into the generic audit table:
+
+| Existing object | Authoritative responsibility | Phase 5.9 treatment |
+|---|---|---|
+| `public.membership_events` | Membership lifecycle, transfer, review and status-change events | Do not duplicate |
+| `public.leadership_history` | Approved executive/leadership succession history | Do not duplicate |
+| `public.leadership_notification_events` | Leadership handover notification events | Do not duplicate |
+| `public.membership_transfer_requests` | Current transfer workflow state | Do not duplicate workflow rows |
+
+A general audit event may reference a domain record only when it records a distinct consequential administrative/security action not already fully represented by the domain history.
+
+## 3. Fresh read-only Supabase verification
+
+Project: `csytneubatlaakpmnsfk`
+
+| Check | Observed result |
+|---|---|
+| Remote migration ledger | 29 records |
+| `public.admin_audit_logs` | Absent |
+| Other public/private objects with audit in their name | None found |
+| `public.membership_events` | Present |
+| `public.leadership_history` | Present |
+| `public.leadership_notification_events` | Present |
+| Security advisor | 0 lints |
+| Health advisor | 0 lints |
+| Performance advisor | 57 INFO unused-index findings |
+
+The 57 unused-index findings are informational observations in the current low/early-usage environment. They are not authorization to drop indexes; evaluate them only after representative workload telemetry exists. No advisor finding was modified.
+
+## 4. Exact work remaining before Phase 5.9 DDL
+
+### P0 — Migration integrity gate (blocking)
+
+1. Recover the four original applied Stage 5.6 migration SQL files from the trusted authoring workstation, backup, or original commit/object archive; or complete the separately approved reconstructed-baseline preservation procedure.
+2. Resolve the provenance of repository-only `20261121133000_org_foundation.sql`. Do not replay it; it creates objects that already exist.
+3. Establish trusted source identity for Stage 5.5.2 and Stage 5.7.0–5.7.2. Timestamp similarity and semantic catalog corroboration are not byte-level proof.
+4. Obtain an owner-controlled restorable backup and complete schema-only export with hashes.
+5. Build and review a local migration directory that safely corresponds to the remote ledger, then run a non-mutating validation. Do not edit the remote ledger or replay migrations to make the lists look aligned.
+6. Document the recovery decision and pass/fail evidence. No Phase 5.9 migration may be created/applied before this gate is demonstrably passed.
+
+### P1 — Governance decisions required for a complete audit policy
+
+These are explicitly open in the existing design and cannot safely be invented:
+
+- **Retention:** define the retention period, archive/export approach, and any lawful deletion/immutability exception.
+- **Actor self-visibility:** decide whether an actor who is not an administrator may view their own audit entries.
+- **National/platform-wide events:** identify the exact national audit role(s) allowed to read records with null `target_org_id`; null must not mean globally readable.
+- **Event allowlist:** approve the initial `action_key` and `entity_type` vocabulary, with explicit exclusions for existing membership and leadership histories.
+- **Sensitive summary allowlist:** approve which minimal before/after fields may be stored for each event; never record secrets or unrestricted row snapshots.
+- **Denied-operation coverage:** decide which denied privileged operations are safely logged and how to avoid leaking sensitive target data.
+
+### P2 — Implementation and verification after P0/P1
+
+1. Recheck table/function name collisions against the live schema immediately before implementation.
+2. Implement the approved append-only table, constraints, indexes, RLS, grants, and narrowly scoped trusted write paths.
+3. Keep privileged implementation functions in the private schema where appropriate; use fixed search paths, schema-qualified names, explicit actor/scope checks, and least-privilege EXECUTE grants. Avoid a public SECURITY DEFINER endpoint.
+4. Ensure audit writes are atomic with the supported mutation and prevent recursive audit writes.
+5. Verify no direct authenticated/anon insert, update, delete or truncate; verify server-derived actor/time and strict payload allowlists.
+6. Test national/union/zone/campus/church inheritance and sibling isolation, including null-target visibility.
+7. Prove no duplicate records are emitted for membership and leadership domain events.
+8. Run security, performance and health advisors and remediate relevant findings.
+9. Run controlled-account end-to-end tests. Until these run, do not claim Stage 5.9 verified or complete.
+10. Commit the migration, documentation, verification evidence and updated V1 reconciliation register together.
+
+## 5. Phase 5.9 completion criteria
+
+Phase 5.9 can be marked complete only when all are true:
+
+- Migration integrity gate passed and documented.
+- Governance choices above are approved and recorded.
+- Migration source is committed and safely applied once.
+- Database schema, grants, RLS and trusted write paths are verified.
+- Positive and negative hierarchy authorization tests pass.
+- Append-only and tamper-resistance tests pass.
+- Atomicity and no-duplicate-history tests pass.
+- Security/performance/health advisor results are reviewed.
+- Controlled-account test limitations, if any, are documented and accepted.
+- GitHub implementation documentation and V1 reconciliation register are updated with evidence.
+
+## 6. What can proceed in parallel
+
+Figma preparation can proceed independently as a **design-only** activity once the user explicitly starts that work. It must not be represented as backend completion, and it must use the approved V1 architecture, existing product decisions, and official NAASCONNECT brand assets. No frontend code should be generated until the Figma wireframes/prototype have been reviewed and approved.
+
+Stage 6 implementation should not be declared started until Phase 5.9's required backend completion criteria are satisfied, unless the owner explicitly reorders the roadmap and the dependency impact is documented.
+
+## 7. Final status
+
+| Work item | Status |
+|---|---|
+| V1 Phase 5.9 design specification | Complete |
+| Architecture and no-duplication review | Complete |
+| Fresh read-only database existence/ledger check | Complete |
+| Existing audit table or audit object | Not present |
+| Migration source-integrity gate | **Blocked / not passed** |
+| Retention and governance policy decisions | Open |
+| Phase 5.9 DDL/migration | Not implemented |
+| Phase 5.9 authorization/security tests | Not run; implementation absent |
+| Phase 5.9 end-to-end verification | Not run |
+| Phase 5.9 overall | **Not complete** |
+| Stage 6 implementation | Not started |
+
+**Safety record:** This review made no Supabase schema/data/ledger changes, created no migration, replayed no migration, and created no paid Supabase branch.
+
+
+---
+
+# SOURCE DOCUMENT: docs/backend/PHASE_5_9_LEDGER_STATEMENT_RECOVERY_ADDENDUM.md
+
+# NAASCONNECT Phase 5.9 — Remote Ledger SQL Statement Recovery Addendum
+
+**Project:** NAASCONNECT Nigeria  
+**Supabase project:** `csytneubatlaakpmnsfk`  
+**Repository:** `TremendousGuru/NAAS`  
+**Captured:** 21 November 2026  
+**Method:** Read-only SELECT from `supabase_migrations.schema_migrations`  
+**Disposition:** Applied SQL statement payloads recovered for all eight previously unmatched ledger entries. No database writes.
+
+## 1. Correction to earlier forensic finding
+
+The earlier migration-source forensic report described the remote ledger as exposing only version/name metadata. A subsequent read-only inspection of `information_schema.columns` found that `supabase_migrations.schema_migrations` also has `statements` (text array), `created_by`, `idempotency_key`, and `rollback` columns.
+
+A read-only count showed all 29 ledger rows have exactly one stored SQL statement payload. Therefore the earlier statement that the ledger did not retain SQL bodies was incomplete and is corrected by this addendum.
+
+The `statements[1]` values are the SQL statement payloads recorded in the remote migration ledger for each applied entry. They preserve the submitted SQL content, but should not be described as byte-for-byte copies of original local migration files: original comments and local file formatting may not be retained.
+
+## 2. Recovered unmatched ledger entries
+
+Eight previously unmatched ledger payloads were retrieved and committed under `docs/backend/recovered-ledger-statements/`:
+
+| Ledger version | Name | SQL characters | Evidence |
+|---|---|---:|---|
+| `20261121140749` | `stage5_5_2_scoped_executive_term_updates` | 1,884 | [Recovered payload](recovered-ledger-statements/20261121140749_stage5_5_2_scoped_executive_term_updates.ledger-recovered.sql) |
+| `20261121142038` | `stage5_6_membership_transfer_and_history_foundation` | 5,408 | [Recovered payload](recovered-ledger-statements/20261121142038_stage5_6_membership_transfer_and_history_foundation.ledger-recovered.sql) |
+| `20261121142049` | `stage5_6_1_lock_transfer_updates_pending_scoped_rpc` | 177 | [Recovered payload](recovered-ledger-statements/20261121142049_stage5_6_1_lock_transfer_updates_pending_scoped_rpc.ledger-recovered.sql) |
+| `20261121142125` | `stage5_6_2_membership_fk_performance_indexes` | 750 | [Recovered payload](recovered-ledger-statements/20261121142125_stage5_6_2_membership_fk_performance_indexes.ledger-recovered.sql) |
+| `20261121145225` | `stage5_6_3_transactional_membership_transfer_review` | 7,761 | [Recovered payload](recovered-ledger-statements/20261121145225_stage5_6_3_transactional_membership_transfer_review.ledger-recovered.sql) |
+| `20261121152734` | `stage5_7_global_community_statuses` | 2,234 | [Recovered payload](recovered-ledger-statements/20261121152734_stage5_7_global_community_statuses.ledger-recovered.sql) |
+| `20261121152827` | `stage5_7_1_status_policy_and_fk_index_hardening` | 1,307 | [Recovered payload](recovered-ledger-statements/20261121152827_stage5_7_1_status_policy_and_fk_index_hardening.ledger-recovered.sql) |
+| `20261121152909` | `stage5_7_2_restrict_authenticated_status_table_grants` | 135 | [Recovered payload](recovered-ledger-statements/20261121152909_stage5_7_2_restrict_authenticated_status_table_grants.ledger-recovered.sql) |
+
+## 3. Timestamp-shifted source comparison
+
+The four timestamp-shifted repository candidates were compared with the corresponding ledger-recovered SQL payloads:
+
+- Stage 5.5.2 candidate `20261121140642_stage5_5_2_scoped_executive_term_updates.sql`: exact file text differs because of comments/whitespace; SQL text matches after removing comments and whitespace.
+- Stage 5.7.0 candidate `20261121162500_stage5_7_global_community_statuses.sql`: SQL text matches after removing comments and normalizing whitespace.
+- Stage 5.7.1 candidate `20261121162600_stage5_7_1_status_policy_and_fk_index_hardening.sql`: SQL text matches after removing comments and normalizing whitespace.
+- Stage 5.7.2 candidate `20261121162700_stage5_7_2_restrict_authenticated_status_table_grants.sql`: SQL text matches after removing comments and normalizing whitespace.
+
+This materially resolves the applied SQL content for those four mismatches. The timestamp discrepancy remains a repository-history/provenance issue; do not rename files or edit the remote ledger.
+
+## 4. Impact on the four Stage 5.6 reconstructed files
+
+The owner-approved reconstructed files remain preserved as a record of the reconstruction exercise. However, the ledger-recovered Stage 5.6 SQL payloads now supersede them for historical applied-SQL evidence.
+
+In particular, the recovered Stage 5.6.1 payload is only the policy removal and authenticated UPDATE revoke. It is not the broader policy reconstruction in the draft. The recovered Stage 5.6.3 payload is the original ledger-recorded review function, not the later Stage 5.6.5 hardened function body used in the draft. Do not treat the reconstructed drafts as a substitute for the recovered ledger payloads.
+
+## 5. Updated migration reconciliation status
+
+- Remote ledger: 29 rows; all 29 contain one SQL statement payload.
+- Current active repository migration directory: 26 files.
+- Exact same-version/name repository file matches: 21.
+- Previously unmatched ledger entries: 8; all 8 applied SQL payloads now recovered from the remote ledger.
+- Timestamp-shifted repository candidates: 4; all 4 SQL bodies match their ledger payload after comment/whitespace normalization.
+- Repository-only `org_foundation`: still has no ledger row; its execution is not proven by this ledger.
+- Four missing Stage 5.6 original local file wrappers/comments remain unrecovered, but their applied SQL payloads are recovered from the remote ledger.
+
+A complete comparison of the 21 same-version repository files against their respective ledger statement payloads remains a final source-integrity check before declaring the ordered source set fully reconciled.
+
+## 6. Remaining work and safety
+
+Still required:
+1. Compare all 21 same-version/name repository SQL files against the 21 corresponding ledger statement payloads.
+2. Resolve/document `org_foundation` as an out-of-band baseline, including who/when/how it was executed or formally accepted.
+3. Obtain and verify the complete schema-only export and SHA-256 manifest.
+4. Obtain/verify the separate full restorable backup.
+5. Complete a non-mutating migration-list/dry-run validation against the final ordered evidence set.
+6. Complete Phase 5.9 P1 audit-governance decisions before implementation.
+
+No Supabase schema/data/ledger changes, migration replay, paid branch creation, or Phase 5.9 DDL occurred during this recovery. All recovered SQL payload files are outside `supabase/migrations/` and are evidence only. The database-write approval gate remains closed. NAASCONNECT V1.0 remains the source of truth.
+
+
+## 7. Follow-up comparison of all 29 applied SQL payloads
+
+A subsequent read-only comparison fetched the stored SQL payload for every ledger row and compared it with the corresponding same-version/name repository file, where one exists. The comparison removed SQL line comments and normalized whitespace before comparing text.
+
+Results:
+
+- **12 of 21** same-version/name repository files match their ledger payload after that normalization.
+- **9 of 21** same-version/name repository files differ after normalization. Their applied ledger payloads have now also been preserved in this directory.
+- The four timestamp-shifted Stage 5.5.2/5.7 candidates match their ledger payloads after comment/whitespace normalization.
+- The four missing Stage 5.6 applied SQL payloads are recovered from the ledger.
+- Thus **17 ledger SQL payloads** are now preserved individually: the 8 formerly unmatched entries plus 9 same-version/name content divergences.
+- The other 12 same-version/name repository files are textually corroborated against their ledger payload after normalization.
+
+The nine same-version/name content-divergent versions are:
+
+- `20261121130420` — `stage5_provisional_geography_admin_seats`
+- `20261121132238` — `stage5_3_admin_appointment_approval_engine`
+- `20261121132415` — `stage5_3_1_harden_admin_appointment_rpc_wrappers`
+- `20261121134717` — `stage5_4_leadership_handover_executive_management`
+- `20261121134728` — `stage5_4_1_handover_security_and_review_fixes`
+- `20261121134737` — `stage5_4_2_president_role_revocation_fix`
+- `20261121140551` — `stage5_5_executive_portfolios_directory_term_management`
+- `20261121150236` — `stage5_6_6_scoped_membership_directory_and_statistics`
+- `20261121150817` — `stage5_6_7_org_membership_review_queues_and_reporting`
+
+This is a significant new finding: the 26-file active migration directory is not merely short four Stage 5.6 files; nine other same-version/name files also differ from the SQL payload recorded in the remote ledger. The ledger-recovered SQL payloads, not the divergent repository copies, are the strongest available evidence of what the remote migration records stored.
+
+The 12 normalized matches and 4 timestamp-shifted normalized matches are not byte-identical file proofs. The 17 preserved ledger payloads are exact as returned from the ledger statement array, but not guaranteed to recreate original file comments or local file packaging.
+
+## 8. Revised P0 reconciliation status
+
+The 29 remote migration entries now have a complete evidence mapping:
+- 12 have same-version/name repository SQL that matches the stored ledger payload after comment/whitespace normalization.
+- 4 have timestamp-shifted repository SQL candidates that match the stored ledger payload after comment/whitespace normalization.
+- 13 require the ledger-recovered payload as the canonical evidence artifact (4 missing Stage 5.6 sources plus 9 same-version/name divergences).
+
+The 17 ledger payloads for the last category and timestamp-shifted entries are preserved under `docs/backend/recovered-ledger-statements/`. All evidence files remain outside `supabase/migrations/`.
+
+A local ordered migration source set has not been installed into the active migration runner. That is deliberate: the active directory contains duplicate/unapplied timestamp candidates and divergent copies, and changing it without an approved reconciliation plan could cause a future CLI operation to attempt unintended migrations. The archive is evidence, not a migration-runner repair.
+
+Remaining P0 blockers are now narrowed to:
+1. Complete schema-only export and SHA-256 manifest.
+2. Separate full restorable backup verification.
+3. Formal disposition of repository-only `org_foundation` as an out-of-band baseline, including owner/execution provenance or explicit accepted baseline treatment.
+4. A final owner-reviewed migration-source mapping and non-mutating dry-run/migration-list validation using a controlled local copy of the evidence set. No file renames, ledger edits, or database writes are authorized by this addendum.
+
+P1 audit-governance decisions remain outstanding. The database-write approval gate remains closed.
+
+
+## 9. Out-of-band organizational foundation execution recovered from PostgreSQL logs
+
+A read-only query of Supabase PostgreSQL logs for 21 November 2026 captured the organizational foundation being executed through the management API:
+
+- **12:28:48.007 UTC:** the `private` schema, `public.org_units`, `public.org_memberships`, hierarchy helpers, triggers, RLS, grants, policies, and national root seed SQL were submitted. The log annotation identifies the source as `POST /mcp`.
+- **12:29:14.311 UTC:** follow-up statements created `org_units_created_by_idx` and `org_memberships_approved_by_idx`, also annotated as `POST /mcp`.
+
+The SQL payloads are preserved under [`docs/backend/recovered-baseline-logs/`](recovered-baseline-logs/README.md). This is execution-log evidence for an out-of-band baseline, not a 30th migration and not a reason to add a row to the migration ledger.
+
+The committed `supabase/migrations/20261121133000_org_foundation.sql` is related to, but not byte-identical with, the logged execution. Differences include explicit `NULL` syntax, `CREATE INDEX IF NOT EXISTS` and index placement, privilege statement packaging, and the national-root description. The log-recovered SQL is the stronger evidence of what was submitted. This resolves the question of whether a foundation was executed out-of-band; it does not make the repository-only file safe to replay.
+
+## 10. Final current P0 checklist
+
+| Requirement | Current status |
+|---|---|
+| Four missing Stage 5.6 applied SQL payloads | **Recovered from remote ledger statements** |
+| Stage 5.5.2 / Stage 5.7 timestamp-shifted payloads | **Recovered; candidate SQL matches after comment/whitespace normalization** |
+| Nine same-version repository files with divergent SQL | **Ledger payloads recovered and preserved** |
+| Twelve same-version repository files matching ledger SQL | **Textually corroborated after comment/whitespace normalization** |
+| Out-of-band `org_foundation` execution | **PostgreSQL log evidence recovered; actual submitted SQL preserved** |
+| Complete schema-only export and SHA-256 manifest | **Outstanding** |
+| Separate full restorable backup verification | **Outstanding** |
+| Owner-reviewed final 29-entry mapping and non-mutating local dry-run/migration-list validation | **Outstanding** |
+
+The 17 ledger-recovered SQL payloads are evidence artifacts only and remain outside the active migration directory. The four reconstructed Stage 5.6 drafts remain preserved but are superseded by the recovered ledger payloads for historical-source purposes. P1 audit-governance decisions remain outstanding. The database-write approval gate remains closed.
+
+
+---
+
+# SOURCE DOCUMENT: docs/backend/PHASE_5_9_READ_ONLY_MIGRATION_PRESERVATION_PACKAGE.md
+
+# NAASCONNECT Phase 5.9 — Read-only Migration Preservation Package
+
+**Inspection date:** 21 November 2026  
+**Supabase project:** `csytneubatlaakpmnsfk`  
+**Repository:** `TremendousGuru/NAAS` (default branch `main`)  
+**Authority:** NAASCONNECT Nigeria V1.0 architecture and approved decisions  
+**Disposition:** Preservation evidence recorded; schema-only export outstanding; migration integrity gate **NOT PASSED**.
+
+## 1. Safety boundary and result
+
+This package is a read-only preservation record. No Supabase schema, data, migration ledger, project configuration, branch, or paid resource was changed. No migration was replayed. No Phase 5.9 DDL was created or applied.
+
+The remote ledger was read through both the Supabase migration-list interface and a read-only query of `supabase_migrations.schema_migrations`. Both returned the same **29 ordered records**. The current GitHub migration directory returned **26 SQL files**.
+
+Reconciliation result:
+- **21** ledger entries have an exact same-version and same-name repository SQL file.
+- **8** ledger entries do not have a same-version source filename.
+- **5** repository files do not exactly map to a ledger version/name pair.
+- The four original Stage 5.6.0–5.6.3 SQL sources remain missing from the current tree and their exact-path GitHub commit-history searches returned no commits.
+- Stage 5.5.2 and Stage 5.7.0–5.7.2 each have a same-name candidate with a different timestamp; those candidates are not proof of the exact applied SQL.
+- `org_foundation` is a repository artifact without a matching remote ledger entry.
+
+These are provenance discrepancies, not permission to repair the ledger or rewrite/replay history.
+
+## 2. Preserved remote migration ledger
+
+The following is the exact ordered ledger snapshot returned by the read-only inspection:
+
+| Version | Applied migration name |
+|---|---|
+| `20261121130420` | `stage5_provisional_geography_admin_seats` |
+| `20261121131034` | `stage5_2_profiles_org_applications_member_onboarding` |
+| `20261121131101` | `stage5_2_1_onboarding_policy_and_fk_indexes` |
+| `20261121131109` | `stage5_2_2_limit_self_membership_to_campus_church` |
+| `20261121132238` | `stage5_3_admin_appointment_approval_engine` |
+| `20261121132415` | `stage5_3_1_harden_admin_appointment_rpc_wrappers` |
+| `20261121134717` | `stage5_4_leadership_handover_executive_management` |
+| `20261121134728` | `stage5_4_1_handover_security_and_review_fixes` |
+| `20261121134737` | `stage5_4_2_president_role_revocation_fix` |
+| `20261121134747` | `stage5_4_3_leadership_fk_indexes` |
+| `20261121134806` | `stage5_4_4_revoke_public_private_rpc_execution` |
+| `20261121134918` | `stage5_4_5_approver_inbox_and_platform_announcements` |
+| `20261121140551` | `stage5_5_executive_portfolios_directory_term_management` |
+| `20261121140620` | `stage5_5_1_harden_directory_rpc_and_fk_indexes` |
+| `20261121140749` | `stage5_5_2_scoped_executive_term_updates` |
+| `20261121142038` | `stage5_6_membership_transfer_and_history_foundation` |
+| `20261121142049` | `stage5_6_1_lock_transfer_updates_pending_scoped_rpc` |
+| `20261121142125` | `stage5_6_2_membership_fk_performance_indexes` |
+| `20261121145225` | `stage5_6_3_transactional_membership_transfer_review` |
+| `20261121145523` | `stage5_6_4_membership_status_lifecycle` |
+| `20261121145544` | `stage5_6_4_membership_status_actor_index` |
+| `20261121145638` | `stage5_6_4_1_reject_null_status_action` |
+| `20261121145919` | `stage5_6_5_transfer_cancellation_and_rejection_hardening` |
+| `20261121145933` | `stage5_6_5_1_cancelled_by_fk_index` |
+| `20261121150236` | `stage5_6_6_scoped_membership_directory_and_statistics` |
+| `20261121150817` | `stage5_6_7_org_membership_review_queues_and_reporting` |
+| `20261121152734` | `stage5_7_global_community_statuses` |
+| `20261121152827` | `stage5_7_1_status_policy_and_fk_index_hardening` |
+| `20261121152909` | `stage5_7_2_restrict_authenticated_status_table_grants` |
+
+## 3. Ledger-to-repository discrepancy matrix
+
+| Remote ledger version | Remote ledger name | Current repository source |
+|---|---|---|
+| `20261121140749` | `stage5_5_2_scoped_executive_term_updates` | `20261121140642_stage5_5_2_scoped_executive_term_updates.sql` (same name, different timestamp) |
+| `20261121142038` | `stage5_6_membership_transfer_and_history_foundation` | **No matching source file or same-name candidate** |
+| `20261121142049` | `stage5_6_1_lock_transfer_updates_pending_scoped_rpc` | **No matching source file or same-name candidate** |
+| `20261121142125` | `stage5_6_2_membership_fk_performance_indexes` | **No matching source file or same-name candidate** |
+| `20261121145225` | `stage5_6_3_transactional_membership_transfer_review` | **No matching source file or same-name candidate** |
+| `20261121152734` | `stage5_7_global_community_statuses` | `20261121162500_stage5_7_global_community_statuses.sql` (same name, different timestamp) |
+| `20261121152827` | `stage5_7_1_status_policy_and_fk_index_hardening` | `20261121162600_stage5_7_1_status_policy_and_fk_index_hardening.sql` (same name, different timestamp) |
+| `20261121152909` | `stage5_7_2_restrict_authenticated_status_table_grants` | `20261121162700_stage5_7_2_restrict_authenticated_status_table_grants.sql` (same name, different timestamp) |
+
+### Classification
+
+- **Four unrecovered applied Stage 5.6 files:** `20261121142038`, `20261121142049`, `20261121142125`, and `20261121145225`. Their exact source paths were queried in GitHub commit history; no path-history commits were returned. No reconstructed SQL is being labelled as original.
+- **Stage 5.5.2:** ledger `20261121140749_stage5_5_2_scoped_executive_term_updates`; repository candidate `20261121140642_stage5_5_2_scoped_executive_term_updates.sql`. Existing documentation records an addition commit `173defd84c3c13b3a6542560267af160f9225ffe` and semantic/catalog corroboration, but the remote ledger does not store the applied SQL body or checksum. Exact applied-source identity remains unproven.
+- **Stage 5.7:** ledger versions `20261121152734`, `20261121152827`, `20261121152909`; repository candidates are timestamped `20261121162500`, `20261121162600`, `20261121162700`. Existing provenance notes identify commits `bb2daecb7c04a63cb5a5197eb6f2f794cf534971`, `cc6f8fcfce244578d86deef654d9a2ac02fd08b0`, and `5f5acf6744e2d5978f426a48fb13aebb27e325ed`. The table/policy/grant outcomes are semantically corroborated by the live catalog, but byte-for-byte applied SQL identity is not proven.
+- **Repository-only `org_foundation`:** file `20261121133000_org_foundation.sql`, blob `0dac27cb773efdc3668a773ead135611ef23efc4`, introduced by commit `489ea6ddfbaf2d17cf35247bdb5eba1a55400b83` at `2026-11-21T12:30:00Z`. Its SQL defines `public.org_units`, `public.org_memberships`, private hierarchy helpers, triggers, RLS policies and the initial national row. The applied provisional-geography migration depends on the pre-existing organization foundation and adds the reserved admin-seat layer. This establishes the file's repository authorship and its architectural relationship, but **does not establish how or when it was executed**: no matching Supabase migration ledger row exists. Do not replay it or silently mark it as applied.
+
+## 4. Complete current repository migration-file inventory
+
+GitHub blob SHAs below are Git object identifiers for the current file contents; they are **not** SHA-256 hashes of a database export.
+
+| File | Bytes | Git blob SHA |
+|---|---:|---|
+| `20261121130420_stage5_provisional_geography_admin_seats.sql` | 6,480 | `ec343d99d6804afa6c28a717cac69360ddefcad2` |
+| `20261121131034_stage5_2_profiles_org_applications_member_onboarding.sql` | 5,286 | `c39c38f18f44dde34a89fd53d26893a0c21e1ee1` |
+| `20261121131101_stage5_2_1_onboarding_policy_and_fk_indexes.sql` | 1,025 | `7d8171e6862dc626c6d19f7497e561f39eb8cd21` |
+| `20261121131109_stage5_2_2_limit_self_membership_to_campus_church.sql` | 823 | `3c3717fe47c18397187028443c60f909d9d742fe` |
+| `20261121132238_stage5_3_admin_appointment_approval_engine.sql` | 5,647 | `db2633fa4db20a6a9961dae026d2d3c5555dbda7` |
+| `20261121132415_stage5_3_1_harden_admin_appointment_rpc_wrappers.sql` | 3,816 | `fe3547c5541e1176fd351dc9c993f7c5ea32d796` |
+| `20261121133000_org_foundation.sql` | 8,476 | `0dac27cb773efdc3668a773ead135611ef23efc4` |
+| `20261121134717_stage5_4_leadership_handover_executive_management.sql` | 17,453 | `bdb9ff70bfd09363a67723725a0fb5dfd7f3a6d9` |
+| `20261121134728_stage5_4_1_handover_security_and_review_fixes.sql` | 6,120 | `336981c6fbfb010bb489f79b646f0484eb2f3d8c` |
+| `20261121134737_stage5_4_2_president_role_revocation_fix.sql` | 5,684 | `8652771c72fd6d1e4be7f7baf53753052f6231fc` |
+| `20261121134747_stage5_4_3_leadership_fk_indexes.sql` | 1,356 | `bc679cbf6815223820f69d17fb38abb739896230` |
+| `20261121134806_stage5_4_4_revoke_public_private_rpc_execution.sql` | 727 | `147a4aa960d36e49b3658845a05f77a3f6d3b071` |
+| `20261121134918_stage5_4_5_approver_inbox_and_platform_announcements.sql` | 6,733 | `cd0441b851bc30499f37a263fc52dcb01d178999` |
+| `20261121140551_stage5_5_executive_portfolios_directory_term_management.sql` | 8,117 | `c7bae3c86a32f3ceed0bcfde661770f67aa49427` |
+| `20261121140620_stage5_5_1_harden_directory_rpc_and_fk_indexes.sql` | 2,696 | `ce366f36d011c7db65b866a7a8d96fcafe2ac799` |
+| `20261121140642_stage5_5_2_scoped_executive_term_updates.sql` | 1,928 | `86bae2fcb12f05511d8acc0c152ff2d4ac3286b1` |
+| `20261121145523_stage5_6_4_membership_status_lifecycle.sql` | 4,118 | `39125bcd5ef737dcedaefa037290df081d39810f` |
+| `20261121145544_stage5_6_4_membership_status_actor_index.sql` | 111 | `a3b25503284ca02ed1d3587cf26f1f67ec58cea1` |
+| `20261121145638_stage5_6_4_1_reject_null_status_action.sql` | 3,291 | `76b42d09abfe4ad6f54903a3fb77b66ad9e1adc9` |
+| `20261121145919_stage5_6_5_transfer_cancellation_and_rejection_hardening.sql` | 11,004 | `9a230fbe7b0f0ac4873f253fbfc5c5063b99ea68` |
+| `20261121145933_stage5_6_5_1_cancelled_by_fk_index.sql` | 118 | `a50d95f6a89171db9867a196ddb66ac03eba94fc` |
+| `20261121150236_stage5_6_6_scoped_membership_directory_and_statistics.sql` | 9,240 | `d0a4465ca3badd15caa8cfb23f159a0aa1a79193` |
+| `20261121150817_stage5_6_7_org_membership_review_queues_and_reporting.sql` | 9,657 | `ed40a75a8b372fd5ed142fe84539e18fb8cd8c00` |
+| `20261121162500_stage5_7_global_community_statuses.sql` | 2,464 | `7595038bb22085b1b7d6046187dffef445e2d61e` |
+| `20261121162600_stage5_7_1_status_policy_and_fk_index_hardening.sql` | 1,376 | `6d05c68caf6e58c41fffab63c2a90a8b64409aae` |
+| `20261121162700_stage5_7_2_restrict_authenticated_status_table_grants.sql` | 292 | `3a86a729eda24c5d492fa1de0e99e40d39f36fa5` |
+
+## 5. Current read-only database inventory
+
+The current public table listing returned 14 tables:
+
+- `public.org_units`
+- `public.org_memberships`
+- `public.org_admin_seats`
+- `public.profiles`
+- `public.org_applications`
+- `public.admin_appointment_requests`
+- `public.org_leadership_positions`
+- `public.leadership_handover_requests`
+- `public.leadership_history`
+- `public.leadership_notification_events`
+- `public.org_executive_portfolios`
+- `public.membership_transfer_requests`
+- `public.membership_events`
+- `public.community_statuses`
+
+The earlier read-only Phase 5.9 inspection confirmed `public.admin_audit_logs` is absent. The existing domain histories remain authoritative and must not be duplicated:
+- `public.membership_events`
+- `public.leadership_history`
+- `public.leadership_notification_events`
+- `public.membership_transfer_requests` (workflow state, not a second generic event stream)
+
+The catalog inventory and object-to-source reconciliation matrix are useful structural evidence, but neither is a restorable schema-only SQL export.
+
+## 6. Schema-only export — status and exact remaining action
+
+**Status: NOT OBTAINED in this execution.**
+
+The connected Supabase interface available here exposes read-only migration, table/catalog, SQL-query and advisor operations, but no database dump/download operation. The active runtime has no `supabase` CLI, `pg_dump`, or `psql` binary and no owner-controlled direct database URI. Therefore a complete schema-only export cannot honestly be claimed or fabricated from table metadata.
+
+To obtain the required export on the owner's trusted machine (without sharing the database URI in chat):
+
+1. Obtain the **direct** database connection URI from Supabase Project Settings → Database → Connection string. Keep it private.
+2. With PostgreSQL client tools installed, run:
+
+```bash
+mkdir -p evidence/phase-5-9
+read -rsp "Paste the direct NAASCONNECT database URI: " NAASCONNECT_DB_URL
+printf '\n'
+export NAASCONNECT_DB_URL
+
+pg_dump \
+  --dbname="$NAASCONNECT_DB_URL" \
+  --schema-only \
+  --format=custom \
+  --file=evidence/phase-5-9/naasconnect-schema-only.dump
+
+pg_restore --list evidence/phase-5-9/naasconnect-schema-only.dump \
+  > evidence/phase-5-9/naasconnect-schema-only.manifest.txt
+
+sha256sum evidence/phase-5-9/naasconnect-schema-only.dump \
+  evidence/phase-5-9/naasconnect-schema-only.manifest.txt \
+  > evidence/phase-5-9/SHA256SUMS
+
+unset NAASCONNECT_DB_URL
+```
+
+3. Confirm the dump command exits successfully, the archive can be listed by `pg_restore --list`, and the SHA-256 manifest is non-empty. Record the PostgreSQL client version, capture time (UTC), project ref, dump byte size, and SHA-256.
+4. Store the dump and manifest in owner-controlled encrypted backup storage, **not** in a public GitHub repository. Review the archive for sensitive function literals or embedded configuration before sharing any portion.
+5. Separately obtain/verify a restorable full backup. A schema-only export contains no table data and is not a full database backup.
+
+If the direct connection is unavailable because of network/IPv6 restrictions, stop and choose an owner-approved Supabase connection method; do not substitute a schema pull that writes migration history. Supabase CLI v3 changed database commands to target the local stack by default; any CLI fallback must explicitly target the remote database and must be used only for a read-only dump. Do not use `db pull`, `db push`, `migration repair`, or `apply_migration` for this preservation step.
+
+## 7. V1.0 alignment and no-duplication safeguards
+
+V1.0 remains the source of truth. This preservation package does not revise hierarchy, roles, organization onboarding, leadership handover, membership lifecycle, or community-status decisions.
+
+Phase 5.9 must remain a separate general administrative/security audit trail. It must not mirror membership transfer/status events, leadership succession history, or leadership notification events. Null-target platform events require explicitly approved national-level visibility; null must never imply global read access. The existing Phase 5.9 design specification remains design-only until the integrity gate and governance decisions are satisfied.
+
+## 8. Remaining integrity gate (all items required)
+
+### P0 — preservation and provenance
+- [ ] Obtain the owner-controlled full restorable backup.
+- [ ] Obtain and verify the complete schema-only export and SHA-256 manifest described above.
+- [ ] Recover the original four Stage 5.6 SQL files from the trusted authoring machine/backup/object archive, **or** execute the separately approved reconstructed-baseline procedure with reconstructed files clearly labelled as reconstructed and never represented as original.
+- [ ] Resolve exact-source provenance for Stage 5.5.2 and Stage 5.7.0–5.7.2; semantic similarity alone is insufficient for a byte-level claim.
+- [ ] Document the `org_foundation` execution history (who/when/how it was applied) or formally document the approved baseline treatment. Do not replay it.
+- [ ] Assemble a complete ordered local migration source set and reconcile it against the preserved 29-row remote ledger without changing the remote ledger.
+- [ ] Run and retain non-mutating validation evidence showing no already-applied migration would be replayed and no applied source remains unaccounted for.
+
+### P1 — audit governance choices
+- [ ] Approve audit retention, archive/export, and lawful deletion/immutability exceptions.
+- [ ] Decide whether non-admin actors may view their own audit entries.
+- [ ] Define which national audit role(s) may read null-target platform events.
+- [ ] Approve the initial `action_key` and `entity_type` allowlists and explicit exclusions for existing domain histories.
+- [ ] Approve the minimal safe metadata allowlist.
+- [ ] Decide which denied privileged operations are logged and how sensitive target information is protected.
+
+### P2 — Phase 5.9 implementation after P0/P1
+Only after P0 and P1 pass: recheck object-name collisions; create and review the migration; implement least-privilege grants, RLS and a trusted append-only write path; prove atomicity, no recursion and no duplicate domain-history events; test hierarchy inheritance and sibling isolation with controlled accounts; run advisors; document verification; update the V1 reconciliation register.
+
+**Separate explicit owner approval is still required before any Supabase database write.** Passing this preservation gate does not itself authorize DDL.
+
+## 9. Final disposition
+
+| Item | Status |
+|---|---|
+| Remote migration ledger snapshot | **Preserved in this GitHub evidence document (29 records)** |
+| Current migration-file inventory | **Preserved (26 files with Git blob SHAs)** |
+| Four original Stage 5.6 SQL files | **Not recovered** |
+| Stage 5.5.2 and Stage 5.7 exact applied SQL identity | **Not proven** |
+| `org_foundation` repository authorship | **Resolved; execution provenance unresolved** |
+| Complete schema-only export | **Not obtained** |
+| Full restorable backup | **Not verified** |
+| Migration integrity gate | **NOT PASSED** |
+| Phase 5.9 DDL/migration | **Not implemented** |
+| Stage 6 implementation | **Not started** |
+
+**Safety attestation:** No Supabase schema/data/ledger change, migration replay, paid branch, or Phase 5.9 DDL was performed during this preservation pass.
+
+
+---
+
+## 10. Subsequent evidence recovery update — 21 November 2026
+
+This section supersedes earlier statements in this preservation snapshot where later evidence is now available. The original snapshot remains preserved as a record of what was known at capture time.
+
+### 10.1 Remote migration ledger statement payloads
+
+A later read-only inspection found that `supabase_migrations.schema_migrations` contains a `statements` text-array column. All 29 ledger rows contain exactly one SQL statement payload. This corrects the earlier assumption that the ledger exposed only version/name metadata.
+
+Seventeen ledger SQL payloads were recovered and committed under `docs/backend/recovered-ledger-statements/`:
+- Eight previously unmatched ledger entries (four missing Stage 5.6 payloads and four timestamp-shifted Stage 5.5.2/5.7 entries).
+- Nine same-version/name entries whose active repository SQL differs from the stored ledger payload after comment/whitespace normalization.
+
+Of the 21 same-version/name repository files, 12 match their ledger payload after comment/whitespace normalization and 9 differ. The four timestamp-shifted Stage 5.5.2/5.7 candidates match their ledger payload after comment/whitespace normalization. The four missing Stage 5.6 applied SQL payloads are recovered directly from the ledger.
+
+These ledger payloads are the strongest available evidence of the SQL submitted for the applied migration records. They are not necessarily byte-for-byte copies of original local files, including comments and packaging.
+
+See [Phase 5.9 ledger statement recovery addendum](PHASE_5_9_LEDGER_STATEMENT_RECOVERY_ADDENDUM.md).
+
+### 10.2 Out-of-band organizational foundation execution
+
+PostgreSQL logs for 21 November 2026 record the organizational foundation SQL being submitted through `POST /mcp` at **12:28:48.007 UTC**, followed by the two `created_by` / `approved_by` indexes at **12:29:14.311 UTC**. The corresponding SQL statements are preserved under `docs/backend/recovered-baseline-logs/`.
+
+This establishes that the organizational foundation was executed outside the 29-row migration ledger. The committed repository-only `20261121133000_org_foundation.sql` is related but is not an exact copy of the logged SQL: it differs in explicit NULL syntax, index idempotency/placement, privilege statement packaging, and the national-root description text. The logged statements are the stronger execution evidence. See [out-of-band foundation provenance](recovered-baseline-logs/README.md).
+
+### 10.3 Revised P0 disposition
+
+The four Stage 5.6 applied SQL payloads have now been recovered from the remote ledger, so the owner-approved reconstructed drafts are superseded for historical applied-SQL evidence. The drafts remain preserved as a reconstruction exercise and must not be treated as original source or replayed.
+
+The out-of-band organizational foundation execution is also evidenced by PostgreSQL logs. The remaining P0 blockers are now:
+- Complete schema-only export plus verified archive listing and SHA-256 manifest.
+- Separate full restorable backup verification.
+- Final owner-reviewed mapping of all 29 ledger payloads to the active repository/evidence archive, including explicit treatment of the nine divergent same-version files and the timestamp-shifted candidates.
+- Non-mutating local validation/migration-list dry run using a controlled source copy, proving no applied migration would be replayed and no ledger entry is unaccounted for.
+
+No recovered SQL file has been placed in `supabase/migrations/`. Do not repair the active directory, rename files, edit the remote ledger, or run `db push` without a separate approved plan. P1 audit-governance decisions remain outstanding. The database-write approval gate remains closed.
