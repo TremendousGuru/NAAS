@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
+const MINIMUM_INTRO_MS = 1100;
+
 export default function SplashGate() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     let active = true;
+    const startedAt = Date.now();
+
     const resolveDestination = async () => {
       let destination = "/login";
       try {
@@ -20,11 +24,29 @@ export default function SplashGate() {
       } catch {
         destination = "/login";
       }
+
+      // Do not navigate away before the brand mark has had a chance to load
+      // and the intro has been visible long enough to render on small devices.
+      const logo = document.querySelector<HTMLImageElement>(".launch-logo");
+      if (logo && !logo.complete) {
+        await new Promise<void>(resolve => {
+          logo.addEventListener("load", () => resolve(), { once: true });
+          logo.addEventListener("error", () => resolve(), { once: true });
+        });
+      }
+      if (logo?.complete && logo.naturalWidth > 0 && typeof logo.decode === "function") {
+        await logo.decode().catch(() => undefined);
+      }
+
+      const remaining = Math.max(0, MINIMUM_INTRO_MS - (Date.now() - startedAt));
+      if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+
       if (active) {
         setChecking(false);
         router.replace(destination);
       }
     };
+
     void resolveDestination();
     return () => { active = false; };
   }, [router]);
