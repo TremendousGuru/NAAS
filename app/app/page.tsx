@@ -43,20 +43,17 @@ export default async function AuthenticatedApp({searchParams}:{searchParams:Prom
   if(auth||!currentUser) redirect("/login");
   const {error:profileError}=await client.from("profiles").upsert({
    id:currentUser.id,display_name:displayName,phone:phone||null,member_category:category,profile_completed:true,
+   institution_name:category==="student"?institution:null,
+   course_of_study:category==="student"?(course||null):null,
+   level_of_study:category==="student"?(level||null):null,
    state_of_origin:stateOfOrigin||null,
    state_of_admission:category==="student"?stateOfAdmission:null,
    residential_state:category==="non_student"?residentialState:null,
    preferred_region_state:category==="non_student"?preferredRegionState:null
   },{onConflict:"id"});
   if(profileError) redirect("/app?profile=not-saved#profile");
-  const {error:metadataError}=await client.auth.updateUser({data:{
-   display_name:displayName,
-   institution_name:category==="student"?institution:null,
-   course_of_study:category==="student"?course:null,
-   level_of_study:category==="student"?level:null
-  }});
   revalidatePath("/app");
-  redirect(metadataError?"/app?profile=saved-details-limited#profile":"/app?profile=saved#profile");
+  redirect("/app?profile=saved#profile");
  }
 
  async function changeAccountEmail(formData:FormData){
@@ -86,7 +83,7 @@ export default async function AuthenticatedApp({searchParams}:{searchParams:Prom
  }
 
  const [profileResult,membershipResult,statusResult,organizationResult,historyResult]=await Promise.all([
-  supabase.from("profiles").select("display_name,phone,member_category,state_of_admission,residential_state,preferred_region_state,state_of_origin,profile_completed").eq("id",user.id).maybeSingle(),
+  supabase.from("profiles").select("display_name,phone,member_category,institution_name,course_of_study,level_of_study,state_of_admission,residential_state,preferred_region_state,state_of_origin,profile_completed").eq("id",user.id).maybeSingle(),
   supabase.from("org_memberships").select("id,org_id,role,status,org_units(name,org_type)").eq("user_id",user.id).order("created_at",{ascending:false}),
   supabase.from("community_statuses").select("id,content,media_url,created_at,expires_at,author_org_id").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(30),
   supabase.from("org_units").select("id,name,org_type,state_name").eq("status","active").in("org_type",["campus","church"]).order("name"),
@@ -103,7 +100,7 @@ export default async function AuthenticatedApp({searchParams}:{searchParams:Prom
  const firstName=displayName.trim().split(/\s+/)[0]||"Member";
  return <main className="member-app">
   <header className="member-topbar"><Link href="/app" className="member-brand"><Image src="/brand/naas-logo.png" alt="NAAS" width={38} height={38}/><Image src="/brand/naasconnect-logo.png" alt="NAASCONNECT Nigeria" width={160} height={42}/></Link><div className="member-top-actions"><span>{user.email}</span><form action={signOut}><button type="submit">Sign out</button></form></div></header>
-  <div className="member-app-body"><aside className="member-sidebar"><div className="member-side-title">YOUR SPACE</div><a className="member-nav active" href="#overview">Overview</a><a className="member-nav" href="#statuses">Global Status</a><a className="member-nav" href="#membership">My Membership</a><a className="member-nav" href="#history">History</a><a className="member-nav" href="#profile">Edit profile</a><a className="member-nav" href="#security">Account settings</a><a className="member-nav" href="#resources">Bible & Lesson Study</a>{admins.length>0&&<><div className="member-side-title admin-side-title">ADMINISTRATION</div><Link className="member-nav" href="/admin">Administrator workspace</Link></>}</aside>
+  <div className="member-app-body"><aside className="member-sidebar"><div className="member-side-title">YOUR SPACE</div><a className="member-nav active" href="#overview">Overview</a><a className="member-nav" href="#statuses">Global Status</a><div className="member-side-title">DISCOVER</div><Link className="member-nav" href="/app/directory?type=campus">Find an ASF</Link><Link className="member-nav" href="/app/directory?type=church">Find a church</Link><a className="member-nav" href="#membership">My Membership</a><a className="member-nav" href="#history">History</a><a className="member-nav" href="#profile">Edit profile</a><a className="member-nav" href="#security">Account settings</a><a className="member-nav" href="#resources">Bible & Lesson Study</a>{admins.length>0&&<><div className="member-side-title admin-side-title">ADMINISTRATION</div><Link className="member-nav" href="/admin">Administrator workspace</Link></>}</aside>
   <section className="member-main" id="overview">
    <div className="member-welcome"><div><span className="member-eyebrow">NAASCONNECT NIGERIA · MEMBER SPACE</span><h1>Welcome, {firstName}</h1><p>Your community, fellowship and spiritual resources in one place.</p></div><span className="member-category">{category}</span></div>
    {profileResult.error&&<div className="member-alert"><b>We could not load your profile.</b><p>Please refresh. If the problem continues, contact support.</p></div>}
