@@ -28,6 +28,7 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: "pending",
+              target_url: "https://github.com/TremendousGuru/NAAS/actions/workflows/naasconnect-predeploy-quality-gate.yml",
               context: "naasconnect/predeploy-quality-gate",
               description: "Running typecheck, build and browser smoke tests"
             });
@@ -41,7 +42,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -80,6 +80,7 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state,
+              target_url: "https://github.com/TremendousGuru/NAAS/actions/workflows/naasconnect-predeploy-quality-gate.yml",
               context: "naasconnect/predeploy-quality-gate",
               description: state === "success"
                 ? "Typecheck, production build and desktop/mobile smoke tests passed"
