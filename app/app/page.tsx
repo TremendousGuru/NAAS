@@ -28,7 +28,7 @@ export default async function AuthenticatedApp(){
  const active=rows.filter(m=>m.status==="active"), pending=rows.filter(m=>m.status==="pending");
  const admins=active.filter(m=>["national_admin","union_admin","zone_admin","campus_admin","church_admin"].includes(m.role));
  const meta=user.user_metadata??{};
- const memberCategory=profile?.member_category??"";
+ const memberCategory=profile?.member_category??String(meta.member_category??"");
  const category=memberCategory==="student"?"Student / ASF member":memberCategory==="non_student"?"Non-student member":"Complete your member profile";
  const displayName=profile?.display_name??String(meta.display_name??user.email?.split("@")[0]??"Member");
  const firstName=displayName.trim().split(/\s+/)[0]||"Member";
