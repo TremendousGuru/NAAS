@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
-const MINIMUM_INTRO_MS = 1100;
+const MINIMUM_INTRO_MS = 5000;
 
 export default function SplashGate() {
   const router = useRouter();
