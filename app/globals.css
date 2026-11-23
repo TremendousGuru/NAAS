@@ -171,3 +171,13 @@
 .directory-contact-list span{color:#94a0b0}
 @media(max-width:850px){.directory-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.directory-detail-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.directory-shell{padding:22px 14px}.directory-header{padding-top:4px}.directory-search-form{grid-template-columns:1fr}.directory-search-form button{width:100%;min-height:44px}.directory-clear{grid-column:1}.directory-results-head{align-items:flex-start;flex-direction:column}.directory-results-head>p{text-align:left}.directory-card-grid{grid-template-columns:1fr}.directory-card{padding:16px}.directory-detail-card,.directory-action-card{padding:17px}.directory-detail-facts div{grid-template-columns:105px minmax(0,1fr)}.directory-tabs a{padding:11px 9px;font-size:10px}}
+
+
+/* Fix the verification-resend form layout on desktop and mobile. */
+.auth-resend-form{display:flex;flex-direction:column;gap:9px;margin-top:17px;padding-top:16px;border-top:1px solid #edf0f5}
+.auth-resend-form label{display:flex;flex-direction:column;gap:7px;color:#53627a;font-size:10px;font-weight:700;line-height:1.5}
+.auth-resend-form input{display:block;width:100%;min-width:0;height:45px;border:1px solid #e1e7f0;border-radius:9px;padding:0 13px;background:#fbfcfe;color:#1d2b43;font-size:12px;box-sizing:border-box}
+.auth-resend-form input:focus{outline:none;border-color:#7c9cda;box-shadow:0 0 0 3px rgba(70,111,190,.1)}
+.auth-resend-form button{align-self:flex-start;min-height:40px;border:1px solid #dce5f2;border-radius:8px;background:#fff;color:#3158b7;padding:0 14px;font-size:10px;font-weight:700}
+.auth-resend-form button:hover{background:#f4f7fc;border-color:#c7d5eb}
+@media(max-width:760px){.auth-resend-form button{align-self:stretch;width:100%;min-height:44px}}

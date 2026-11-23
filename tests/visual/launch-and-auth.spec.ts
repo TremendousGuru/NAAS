@@ -32,6 +32,18 @@ test("login branding assets load and the layout fits the viewport", async ({ pag
   );
   expect(imageFailures, "Every rendered login image should load").toEqual([]);
 
+  const resendInput = page.getByPlaceholder("Enter your registration email");
+  const resendButton = page.getByRole("button", { name: "Resend confirmation email" });
+  await expect(resendInput).toBeVisible();
+  await expect(resendButton).toBeVisible();
+  const resendInputBox = await resendInput.boundingBox();
+  const resendButtonBox = await resendButton.boundingBox();
+  expect(resendInputBox).not.toBeNull();
+  expect(resendButtonBox).not.toBeNull();
+  expect(resendInputBox!.width, "The resend email field should occupy the form width").toBeGreaterThan(200);
+  expect(resendButtonBox!.y, "The resend action should sit below its email field, not beside or over it")
+    .toBeGreaterThanOrEqual(resendInputBox!.y + resendInputBox!.height - 1);
+
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow, "The login page should not overflow horizontally").toBe(false);
   await page.screenshot({ path: `artifacts/login-${testInfo.project.name}.png`, fullPage: true });

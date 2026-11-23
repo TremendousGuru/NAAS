@@ -48,7 +48,16 @@ export default async function OrganizationDetails({ params, searchParams }: {
   const correctCategory = org.org_type === "campus" ? category === "student" : category === "non_student";
   const currentStatus = membershipResult.data?.status ?? null;
   const membershipCheckFailed = Boolean(membershipResult.error);
-  const canSubmit = correctCategory && !membershipCheckFailed && (!currentStatus || currentStatus === "rejected");
+  const normalized = (value: string | null | undefined) => (value ?? "").trim().toLocaleLowerCase();
+  const organizationDetailsReady = org.org_type === "campus"
+    ? Boolean(org.institution_name?.trim() && org.state_name?.trim())
+    : Boolean(org.state_name?.trim());
+  const eligibilityMatches = org.org_type === "campus"
+    ? normalized(profileResult.data?.institution_name) === normalized(org.institution_name)
+      && normalized(profileResult.data?.state_of_admission) === normalized(org.state_name)
+    : normalized(profileResult.data?.preferred_region_state) === normalized(org.state_name);
+  const canSubmit = correctCategory && organizationDetailsReady && eligibilityMatches
+    && !membershipCheckFailed && (!currentStatus || currentStatus === "rejected");
   const website = safeWebUrl(org.website_url);
   const whatsapp = safeWebUrl(org.whatsapp_url);
   const requestState = typeof query.request === "string" ? query.request : "";
@@ -91,11 +100,17 @@ export default async function OrganizationDetails({ params, searchParams }: {
             <p>Complete your member profile before requesting an organization membership.</p>
           ) : !correctCategory ? (
             <p>{org.org_type === "campus" ? "Campus / ASF membership requests are available to student members." : "Church membership requests are available to non-student members."} Your profile category does not currently match this directory.</p>
+          ) : !organizationDetailsReady ? (
+            <p>This active listing is missing the institution or state information required for a safe eligibility check. An authorized administrator must complete the organization record before membership requests can be submitted.</p>
+          ) : !eligibilityMatches ? (
+            <p>{org.org_type === "campus"
+              ? "Your saved institution and state of admission do not match this fellowship's listing. Choose a matching fellowship or correct your profile if its details are inaccurate."
+              : "This church is outside your saved preferred church region. Choose a church in that region or correct your profile if the saved preference is inaccurate."}</p>
           ) : canSubmit ? (
             <>
               <p>{org.org_type === "campus"
-                ? "Your request is checked against your institution and state of admission."
-                : "Your request is checked against your preferred church region. Your residential state is kept separate."}</p>
+                ? "Your institution and state of admission match this fellowship."
+                : "This church matches your preferred church region. Your residential state remains separate."}</p>
               <form action={requestDirectoryMembership}>
                 <input type="hidden" name="org_id" value={org.id}/>
                 <button type="submit" className="directory-request-button">{currentStatus === "rejected" ? "Resubmit membership request" : "Request membership"} <span>→</span></button>
