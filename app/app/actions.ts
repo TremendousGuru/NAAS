@@ -53,12 +53,12 @@ export async function updateMemberProfile(formData: FormData) {
   const institution = String(formData.get("institution_name") ?? "").trim().slice(0, 180);
   const course = String(formData.get("course_of_study") ?? "").trim().slice(0, 120);
   const level = String(formData.get("level_of_study") ?? "").trim().slice(0, 80);
-  const stateOfOrigin = String(formData.get("state_of_origin") ?? "").trim().slice(0, 80);
+  const stateOfOrigin = String(formData.get("state_of_origin") ?? "").trim().slice(0, 80);\n  const stateOfAdmission = String(formData.get("state_of_admission") ?? "").trim().slice(0, 80);\n  const residentialState = String(formData.get("residential_state") ?? "").trim().slice(0, 80);
   if (displayName.length < 2) redirect("/app?profile=invalid#profile");
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
-  const { error } = await supabase.from("profiles").upsert({
+  const metadata = user.user_metadata ?? {};\n  const { error: metadataError } = await supabase.auth.updateUser({ data: {\n    ...metadata,\n    state_of_admission: metadata.member_category === "student" ? (stateOfAdmission || null) : null,\n    residential_state: metadata.member_category === "non_student" ? (residentialState || null) : null,\n    institution_name: institution || null, course_of_study: course || null, level_of_study: level || null,\n  } });\n  if (metadataError) redirect("/app?profile=not-saved#profile");\n  const { error } = await supabase.from("profiles").upsert({
     id: user.id, display_name: displayName, phone: phone || null,
     institution_name: institution || null, course_of_study: course || null,
     level_of_study: level || null, state_of_origin: stateOfOrigin || null,
