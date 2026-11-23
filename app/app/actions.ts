@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+const NIGERIAN_STATES = new Set(["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"]);
+
 export async function publishTextStatus(formData: FormData) {
   const content = String(formData.get("content") ?? "").trim().slice(0, 2000);
   if (!content) redirect("/app?status=empty#statuses");
@@ -28,21 +30,16 @@ export async function requestMembership(formData: FormData) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
-  const category = user.user_metadata?.member_category;
-  const { data: org, error: orgError } = await supabase.from("org_units")
-    .select("id,org_type,status").eq("id", orgId).eq("status", "active").maybeSingle();
-  if (orgError || !org) redirect("/app?membership=unavailable#membership");
-  if ((category === "student" && org.org_type !== "campus") ||
-      (category === "non_student" && org.org_type !== "church")) {
-    redirect("/app?membership=category-mismatch#membership");
+  // Eligibility is enforced by the database RPC using authoritative profile
+  // fields. Never authorize from editable Auth user_metadata in this action.
+  const { error } = await supabase.rpc("request_member_onboarding", { p_org_id: orgId });
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "42883" || /function .*request_member_onboarding.* does not exist/i.test(error.message)) {
+      redirect("/app?membership=backend-not-ready#membership");
+    }
+    redirect("/app?membership=not-submitted#membership");
   }
-  if (!["campus", "church"].includes(org.org_type)) redirect("/app?membership=invalid#membership");
-
-  const role = org.org_type === "church" ? "church_member" : "member";
-  const { error } = await supabase.from("org_memberships").insert({
-    user_id: user.id, org_id: org.id, role, status: "pending",
-  });
-  if (error) redirect("/app?membership=not-submitted#membership");
   revalidatePath("/app");
   redirect("/app?membership=submitted#membership");
 }
@@ -50,30 +47,40 @@ export async function requestMembership(formData: FormData) {
 export async function updateMemberProfile(formData: FormData) {
   const displayName = String(formData.get("display_name") ?? "").trim().slice(0, 120);
   const phone = String(formData.get("phone") ?? "").trim().slice(0, 32);
+  const category = String(formData.get("member_category") ?? "").trim();
   const institution = String(formData.get("institution_name") ?? "").trim().slice(0, 180);
   const course = String(formData.get("course_of_study") ?? "").trim().slice(0, 120);
   const level = String(formData.get("level_of_study") ?? "").trim().slice(0, 80);
-  const stateOfOrigin = String(formData.get("state_of_origin") ?? "").trim().slice(0, 80);
-  const stateOfAdmission = String(formData.get("state_of_admission") ?? "").trim().slice(0, 80);
-  const residentialState = String(formData.get("residential_state") ?? "").trim().slice(0, 80);
-  if (displayName.length < 2) redirect("/app?profile=invalid#profile");
+  const stateOfOrigin = String(formData.get("state_of_origin") ?? "").trim();
+  const stateOfAdmission = String(formData.get("state_of_admission") ?? "").trim();
+  const residentialState = String(formData.get("residential_state") ?? "").trim();
+  const preferredRegionState = String(formData.get("preferred_region_state") ?? "").trim();
+  if (displayName.length < 2 || !["student","non_student"].includes(category)) redirect("/app?profile=invalid#profile");
+  if ((category === "student" && (!institution || !NIGERIAN_STATES.has(stateOfAdmission))) ||
+      (category === "non_student" && (!NIGERIAN_STATES.has(residentialState) || !NIGERIAN_STATES.has(preferredRegionState)))) {
+    redirect("/app?profile=region-required#profile");
+  }
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
-  const metadata = user.user_metadata ?? {};
-  const { error: metadataError } = await supabase.auth.updateUser({ data: {
-    ...metadata,
-    state_of_admission: metadata.member_category === "student" ? (stateOfAdmission || null) : null,
-    residential_state: metadata.member_category === "non_student" ? (residentialState || null) : null,
-    institution_name: institution || null, course_of_study: course || null, level_of_study: level || null,
-  } });
-  if (metadataError) redirect("/app?profile=not-saved#profile");
+
   const { error } = await supabase.from("profiles").upsert({
-    id: user.id, display_name: displayName, phone: phone || null,
-    institution_name: institution || null, course_of_study: course || null,
-    level_of_study: level || null, state_of_origin: stateOfOrigin || null,
+    id: user.id,
+    display_name: displayName,
+    phone: phone || null,
+    member_category: category,
+    institution_name: category === "student" ? institution : null,
+    course_of_study: category === "student" ? course || null : null,
+    level_of_study: category === "student" ? level || null : null,
+    state_of_origin: stateOfOrigin || null,
+    state_of_admission: category === "student" ? stateOfAdmission : null,
+    residential_state: category === "non_student" ? residentialState : null,
+    preferred_region_state: category === "non_student" ? preferredRegionState : null,
   }, { onConflict: "id" });
-  if (error) redirect("/app?profile=not-saved#profile");
+  if (error) {
+    if (/column .* does not exist|schema cache/i.test(error.message)) redirect("/app?profile=backend-not-ready#profile");
+    redirect("/app?profile=not-saved#profile");
+  }
   revalidatePath("/app");
   redirect("/app?profile=saved#profile");
 }
