@@ -42,7 +42,7 @@ export default async function AuthenticatedApp({searchParams}:{searchParams:Prom
   const {data:{user:currentUser},error:auth}=await client.auth.getUser();
   if(auth||!currentUser) redirect("/login");
   const {error:profileError}=await client.from("profiles").upsert({
-   id:currentUser.id,display_name:displayName,phone:phone||null,member_category:category,
+   id:currentUser.id,display_name:displayName,phone:phone||null,member_category:category,profile_completed:true,
    state_of_origin:stateOfOrigin||null,
    state_of_admission:category==="student"?stateOfAdmission:null,
    residential_state:category==="non_student"?residentialState:null,
