@@ -15,7 +15,7 @@ type MembershipEvent = { id:string; org_id:string; event_type:string; created_at
 function roleLabel(role:string){return role.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());}
 function organizationName(m:Membership){return Array.isArray(m.org_units)?m.org_units[0]?.name:m.org_units?.name;}
 function eventOrganizationName(e:MembershipEvent){return Array.isArray(e.org_units)?e.org_units[0]?.name:e.org_units?.name;}
-function eventLabel(value:string){return value.replaceAll("_"," ").replace(/\\b\\w/g,c=>c.toUpperCase());}
+function eventLabel(value:string){return value.split("_").map(part=>part.charAt(0).toUpperCase()+part.slice(1)).join(" ");}
 
 export default async function AuthenticatedApp({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){
  const params=await searchParams;
@@ -62,7 +62,7 @@ export default async function AuthenticatedApp({searchParams}:{searchParams:Prom
  async function changeAccountEmail(formData:FormData){
   "use server";
   const email=String(formData.get("email")??"").trim().toLowerCase().slice(0,254);
-  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) redirect("/app?security=invalid-email#security");
+  if(!email.includes("@")||!email.split("@")[1]?.includes(".")||email.includes(" ")) redirect("/app?security=invalid-email#security");
   const client=await createClient();
   const {data:{user:currentUser},error:auth}=await client.auth.getUser();
   if(auth||!currentUser) redirect("/login");
