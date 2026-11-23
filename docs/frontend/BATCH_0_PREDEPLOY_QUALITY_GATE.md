@@ -56,3 +56,25 @@ The implementation is committed, but the gate is not considered operationally pr
 - No production promotion.
 - No change to V1.0 decisions or architecture.
 - Existing post-deployment visual QA is retained.
+
+## Verified operational result — 2026-11-23
+
+Batch 0's first complete pre-deployment verification has now succeeded.
+
+- **GitHub Actions run:** [45087816252](https://github.com/TremendousGuru/NAAS/actions/runs/45087816252)
+- **Verified commit:** `2b39501b5d0920ed79255e43709065e06062f1f6`
+- **Commit status:** `naasconnect/predeploy-quality-gate = success`
+- **Checks:** dependency installation, TypeScript, production build, Chromium installation and production-browser tests all completed successfully.
+- **Intro:** minimum display duration set to 5,000 ms; logo load/decode and Supabase session routing remain part of the splash flow.
+- **Vercel deployment:** [READY preview](https://naasconnect-nigeria-eivypmqdl-tredexhq-6708.vercel.app), deployment ID `dpl_4STKUzwgvBaxrz5gH5xyfyr57JGL`, built from the same verified commit.
+- **Vercel gate evidence:** build log records that pre-deployment QA passed for the exact commit before `vercel build` was allowed to proceed.
+
+The quality gate is therefore operationally proven for a successful commit. The earlier failing run on commit `a3efb7224de1a678212d61d0452d1765d2021ae7` is retained as failure evidence; it was not overwritten or hidden.
+
+### Remaining hardening and release checks
+
+1. Commit a reviewed `package-lock.json` and move CI from `npm install` to `npm ci`. This is dependency-reproducibility hardening, not a blocker to the demonstrated gate.
+2. Perform a human visual review of the deployed preview on a real desktop and mobile browser, including logo, typography, images and the five-second intro. GitHub's automated browser checks passed against the locally built production server; they do not by themselves certify every remote-device rendering detail.
+3. Keep production promotion separate; this milestone only verified a preview deployment.
+
+Batch 0 does not authorize or perform Supabase changes, migrations, Phase 5.9 DDL, or production promotion.
