@@ -28,6 +28,7 @@ export async function signUp(formData: FormData) {
   const course = safeText(formData.get("course_of_study"), 120);
   const level = safeText(formData.get("level_of_study"), 80);
   const residence = safeText(formData.get("residential_state"), 80);
+  const preferredRegion = memberCategory === "non_student" ? state : "";
 
   if (!email || !displayName || password.length < 10 || !phone || !state ||
       !["student", "non_student"].includes(memberCategory)) {
@@ -36,7 +37,7 @@ export async function signUp(formData: FormData) {
   if (memberCategory === "student" && !institution) {
     redirect("/login?mode=signup&error=Enter%20your%20school%20or%20institution");
   }
-  if (memberCategory === "non_student" && !residence) {
+  if (memberCategory === "non_student" && (!residence || !preferredRegion)) {
     redirect("/login?mode=signup&error=Select%20your%20state%20of%20residence");
   }
 
@@ -57,6 +58,7 @@ export async function signUp(formData: FormData) {
         course_of_study: memberCategory === "student" ? course : null,
         level_of_study: memberCategory === "student" ? level : null,
         residential_state: memberCategory === "non_student" ? residence : null,
+        preferred_region_state: memberCategory === "non_student" ? preferredRegion : null,
         onboarding_version: "naasconnect-v1",
       },
       emailRedirectTo: new URL("/auth/callback", siteUrl).toString(),
