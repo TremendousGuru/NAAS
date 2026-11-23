@@ -55,3 +55,42 @@ A separate initial-membership approval/rejection RPC is also needed if the exist
 - Review the preview for admin empty/error states and profile editor responsiveness.
 - Controlled real-account testing is still required for registration, confirmation, sign-in, profile save and membership request.
 - No production promotion is authorized by this progress record.
+
+
+## Follow-up verification and database proposal — 2026-11-23
+
+### CI failure identified and corrected
+
+The first Batch 1 workflow run (`45088666233`) failed at TypeScript validation because two source edits contained literal backslash-n characters rather than actual line breaks. This was a source-generation formatting defect, not a schema or business-logic failure.
+
+Corrective commits:
+- `28062b48685b6525b7c919d63ecd4582d5413a15` — corrected `app/app/actions.ts`.
+- `1052983246af7611c14226d5e0b88d0be9dc655a` — corrected `app/app/page.tsx`.
+
+A new workflow is expected from the latest branch head. Do not treat Batch 1 as deployment-verified until that run passes TypeScript, build and browser QA.
+
+### Durable intake and initial review SQL proposal
+
+Created `docs/backend/proposals/BATCH_1_MEMBER_INTAKE_AND_REVIEW_PROPOSAL.sql` (proposal only; outside `supabase/migrations/`).
+
+The proposal:
+- Adds one row per user for student/non-student classification, admission/residence state and optional preferred organization.
+- Reuses existing `profiles` fields for institution/course/level to avoid duplicating canonical data.
+- Extends `org_memberships.status` with an explicit `rejected` value rather than misusing `ended`.
+- Adds a private, transaction-safe initial approval/rejection routine with active organization-scope authorization, no-self-review, pending-only transition, reason validation and membership event insertion.
+- Exposes only a narrow authenticated wrapper.
+
+This proposal has NOT been applied or replayed. It requires separate explicit approval before any Supabase write. It also requires local/disposable database tests and Supabase advisor review before application.
+
+### Additional security note
+
+The current interim UI still reads the member category from Auth user metadata for presentation and form routing. Supabase documentation and security review confirm user metadata is user-editable and must never be used for authorization. The database's current membership INSERT policy enforces pending-only self-requests, allowed role, and active campus/church organization; it does not enforce student-versus-non-student category. The durable-intake proposal must therefore be extended with a database-enforced category-to-organization eligibility check before that distinction is treated as authoritative. Do not rely on client/UI filtering for this rule.
+
+### Remaining blockers
+
+- Approval to apply the proposed SQL (separate authorization).
+- Extend proposal with DB-enforced category/org eligibility and test it.
+- Populate and activate verified campus/church directory records through the approved organization governance workflow.
+- Create controlled test accounts and a real active scoped administrator assignment through the approved process.
+- Verify email delivery configuration in Supabase Auth settings.
+- Pass the latest CI run and visually inspect the preview before considering the code deployable.
