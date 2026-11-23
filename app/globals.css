@@ -1,3 +1,22 @@
+
+
+/* Batch 1 stabilization: clearer, category-aware member profile form. */
+.member-profile-form{display:flex;flex-direction:column;gap:14px;padding:18px;border:1px solid #e5ebf4;background:#fbfcff;border-radius:12px}
+.member-profile-form>label,.profile-fieldset label{display:flex;flex-direction:column;gap:7px;color:#40516d;font-size:11px;font-weight:700}
+.member-profile-form input,.member-profile-form select{width:100%;min-height:44px;border:1px solid #dce4ef;border-radius:8px;padding:10px 12px;background:#fff;color:#253650;font:inherit;font-size:12px;box-sizing:border-box}
+.member-profile-form input:focus,.member-profile-form select:focus{outline:3px solid rgba(49,88,183,.12);border-color:#7190d0}
+.profile-fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;border:1px solid #dfe7f2;border-radius:10px;padding:15px;margin:0;min-width:0}
+.profile-fieldset legend{padding:0 7px;color:#294d91;font-size:11px;font-weight:800}
+.profile-fieldset label{min-width:0}
+.profile-fieldset label:first-of-type:nth-last-of-type(1){grid-column:1/-1}
+.profile-help{grid-column:1/-1;margin:0;padding:10px 12px;border-radius:8px;background:#f0f4fb;color:#687b98;font-size:10px;line-height:1.6}
+.profile-submit-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-top:4px}
+.profile-submit-row small{max-width:440px;color:#8793a5;font-size:9px;line-height:1.6}
+.profile-submit-row button{flex-shrink:0;border:0;border-radius:8px;background:#173b79;color:#fff;padding:11px 17px;font-size:10px;font-weight:800;cursor:pointer}
+.profile-submit-row button:hover{background:#244f99}
+.member-alert{border:1px solid #f0d5d2;background:#fff8f7;color:#87443e;border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.member-alert p{margin:4px 0 0;font-size:11px;line-height:1.5}
+@media(max-width:640px){.member-profile-form{padding:13px;gap:12px}.profile-fieldset{grid-template-columns:1fr;padding:12px}.profile-fieldset label:first-of-type:nth-last-of-type(1),.profile-help{grid-column:1}.profile-submit-row{align-items:stretch;flex-direction:column}.profile-submit-row button{width:100%;min-height:44px}}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 :root{--ink:#17233b;--muted:#718096;--line:#e8edf4;--canvas:#f5f7fb;--white:#fff;--blue:#3158b7;--blue-dark:#24479c;--soft-blue:#edf3ff;--green:#23956b;--shadow:0 8px 30px rgba(28,45,78,.045)}
