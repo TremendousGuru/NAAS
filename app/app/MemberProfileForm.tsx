@@ -17,7 +17,7 @@ export default function MemberProfileForm({ action, profile, displayName, metada
  displayName: string;
  metadata: Record<string, unknown>;
 }) {
- const [category,setCategory] = useState(profile?.member_category === "non_student" ? "non_student" : profile?.member_category === "student" ? "student" : "");
+ const [category,setCategory] = useState(profile?.member_category === "non_student" ? "non_student" : profile?.member_category === "student" ? "student" : metadata.member_category === "non_student" ? "non_student" : metadata.member_category === "student" ? "student" : "");
  const meta = (key:string) => typeof metadata[key] === "string" ? metadata[key] as string : "";
  return <form action={action} className="member-profile-form">
   <label>Full name<input name="display_name" required minLength={2} maxLength={120} defaultValue={profile?.display_name ?? displayName}/></label>
