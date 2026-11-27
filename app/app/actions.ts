@@ -141,3 +141,45 @@ export async function cancelMembershipTransfer(formData: FormData) {
   revalidatePath("/app");
   redirect("/app?transfer=cancelled#membership");
 }
+
+export async function publishCommunityStatus(formData: FormData) {
+  const content = String(formData.get("content") ?? "").trim().slice(0, 2000);
+  const mediaUrlRaw = String(formData.get("media_url") ?? "").trim();
+  const orgId = String(formData.get("author_org_id") ?? "").trim();
+  let mediaUrl: string | null = null;
+  if (!content) redirect("/app/community?status=empty");
+  if (mediaUrlRaw) {
+    try {
+      const parsed = new URL(mediaUrlRaw);
+      if (parsed.protocol !== "https:" || mediaUrlRaw.length > 2048) throw new Error("Invalid media URL");
+      mediaUrl = parsed.toString();
+    } catch { redirect("/app/community?status=invalid-media"); }
+  }
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  if (orgId) {
+    const { error } = await supabase.from("community_statuses").insert({ author_user_id: user.id, author_org_id: orgId, content, media_url: mediaUrl });
+    if (error) redirect("/app/community?status=not-published");
+  } else {
+    const { data: membership, error: membershipError } = await supabase.from("org_memberships").select("id").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
+    if (membershipError || !membership) redirect("/app/community?status=membership-required");
+    const { error } = await supabase.from("community_statuses").insert({ author_user_id: user.id, author_org_id: null, content, media_url: mediaUrl });
+    if (error) redirect("/app/community?status=not-published");
+  }
+  revalidatePath("/app"); revalidatePath("/app/community");
+  redirect("/app/community?status=published");
+}
+
+export async function deleteCommunityStatus(formData: FormData) {
+  const statusId = String(formData.get("status_id") ?? "").trim();
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuid.test(statusId)) redirect("/app/community?status=invalid-delete");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { error } = await supabase.from("community_statuses").delete().eq("id", statusId);
+  if (error) redirect("/app/community?status=delete-failed");
+  revalidatePath("/app"); revalidatePath("/app/community");
+  redirect("/app/community?status=deleted");
+}
