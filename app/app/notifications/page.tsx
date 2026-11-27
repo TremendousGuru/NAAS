@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PortalSideNav from "../PortalSideNav";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -51,7 +52,7 @@ export default async function NotificationsPage() {
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 150);
   return (
-    <main className="directory-shell">
+    <main className="member-app portal-app-frame"><PortalSideNav/><div className="portal-main-column"><header className="portal-main-topbar"><span>NAASCONNECT NIGERIA <i>/</i> MEMBER SPACE</span><Link href="/app">Overview</Link></header><div className="portal-dashboard directory-shell">
       <header className="directory-header">
         <Link href="/app" className="directory-back">← Member workspace</Link>
         <span className="directory-kicker">NAASCONNECT NIGERIA · UPDATES</span>
@@ -75,6 +76,6 @@ export default async function NotificationsPage() {
         </div>
       )}
       <footer className="directory-footer">This inbox combines existing membership and leadership event records. Read receipts, push/email delivery, preferences and event reminders require additional approved backend services.</footer>
-    </main>
+    </div></div></main>
   );
 }
