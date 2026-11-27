@@ -10,9 +10,11 @@ permissions:
   contents: read
   statuses: write
 
+# Keep each commit's QA run independent. A newer push to the same branch
+# must not cancel the status publisher for a commit Vercel is already waiting on.
 concurrency:
-  group: naasconnect-predeploy-${{ github.ref }}
-  cancel-in-progress: true
+  group: naasconnect-predeploy-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   quality-gate:
@@ -30,11 +32,11 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
-          curl --fail-with-body --silent --show-error \
-            -X POST "https://api.github.com/repos/$REPOSITORY/statuses/$COMMIT_SHA" \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
+          curl --fail-with-body --silent --show-error \\
+            -X POST "https://api.github.com/repos/$REPOSITORY/statuses/$COMMIT_SHA" \\
+            -H "Accept: application/vnd.github+json" \\
+            -H "Authorization: Bearer $GH_TOKEN" \\
+            -H "X-GitHub-Api-Version: 2022-11-28" \\
             -d '{"state":"pending","context":"naasconnect/predeploy-quality-gate","description":"Typecheck, production build and browser QA are running"}'
 
       - name: Set up Node.js 22
@@ -90,9 +92,9 @@ jobs:
             STATE=failure
             DESCRIPTION="Pre-deployment checks failed; Vercel preview must be skipped"
           fi
-          curl --fail-with-body --silent --show-error \
-            -X POST "https://api.github.com/repos/$REPOSITORY/statuses/$COMMIT_SHA" \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            -d "{\"state\":\"$STATE\",\"context\":\"naasconnect/predeploy-quality-gate\",\"description\":\"$DESCRIPTION\"}"
+          curl --fail-with-body --silent --show-error \\
+            -X POST "https://api.github.com/repos/$REPOSITORY/statuses/$COMMIT_SHA" \\
+            -H "Accept: application/vnd.github+json" \\
+            -H "Authorization: Bearer $GH_TOKEN" \\
+            -H "X-GitHub-Api-Version: 2022-11-28" \\
+            -d "{\\"state\\":\\"$STATE\\",\\"context\\":\\"naasconnect/predeploy-quality-gate\\",\\"description\\":\\"$DESCRIPTION\\"}"
