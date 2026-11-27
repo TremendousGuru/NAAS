@@ -82,6 +82,7 @@ export async function updateMemberProfile(formData: FormData) {
     redirect("/app/settings?profile=not-saved");
   }
   revalidatePath("/app");
+  revalidatePath("/app/settings");
   redirect("/app/settings?profile=saved");
 }
 
