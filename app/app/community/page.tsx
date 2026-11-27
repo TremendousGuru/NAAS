@@ -59,7 +59,6 @@ export default async function CommunityPage() {
         </form>
       </section>}
       {!activeMembership && <div className="portal-inline-alert">Status publishing becomes available after an organisation membership is approved. <Link href="/app/membership">View membership options</Link></div>}
-      {typeof undefined === "string" ? null : null}
       {error ? (
         <div className="directory-empty" role="alert"><h3>Statuses are temporarily unavailable</h3><p>Refresh the page. If this continues, contact support.</p></div>
       ) : statuses.length === 0 ? (
