@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { reviewMembership } from "./actions";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../auth/actions";
@@ -23,7 +24,9 @@ function label(value: string) {
   return value.replaceAll("_", " ").replace(/\\b\\w/g, c => c.toUpperCase());
 }
 
-export default async function AdministratorPage() {
+export default async function AdministratorPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const reviewState = typeof params.review === "string" ? params.review : "";
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) redirect("/login");
@@ -57,6 +60,9 @@ export default async function AdministratorPage() {
     </header>
     <div className="member-main admin-route-main">
       <Link href="/app" className="admin-return-link">← Return to member space</Link>
+      {reviewState === "approved" && <div className="directory-feedback success" role="status">Membership approved. The member’s status and audit history have been updated.</div>}
+      {reviewState === "rejected" && <div className="directory-feedback success" role="status">Membership request rejected. The reason has been recorded in the membership history.</div>}
+      {(reviewState === "failed" || reviewState === "invalid") && <div className="directory-feedback error" role="alert">The review could not be completed. Refresh the queue and confirm the request is still pending and within your authorized scope.</div>}
       <div className="admin-live-scope">
         <b>Verified active assignments</b>
         <span>{authorized.map(a => label(a.role) + " · " + (orgName(a) ?? "Assigned organization")).join(" | ")}</span>
@@ -73,9 +79,9 @@ export default async function AdministratorPage() {
           <div className="admin-panel-head"><div><span className="section-kicker">{label((Array.isArray(assignment.org_units) ? assignment.org_units[0]?.org_type : assignment.org_units?.org_type) ?? "organization")} SCOPE</span><h3>{orgName(assignment) ?? "Assigned organization"}</h3></div><span className="admin-count">{items.length} shown</span></div>
           {queueError ? <p className="member-empty">The live review queue could not be loaded for this scope. No sample records are displayed.</p> :
            items.length === 0 ? <p className="member-empty">There are currently no pending membership requests in this organization scope.</p> :
-           <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>APPLICANT</th><th>ORGANIZATION</th><th>REQUESTED ROLE</th><th>SUBMITTED</th><th>STATUS</th></tr></thead><tbody>{items.map(item=><tr key={item.membership_id}><td><b>{item.display_name}</b><small>{item.institution_name ?? "Institution not supplied"}{item.course_of_study ? " · " + item.course_of_study : ""}{item.level_of_study ? " · " + item.level_of_study : ""}</small></td><td>{item.organization_name}<small>{label(item.organization_type)}</small></td><td>{label(item.requested_role)}</td><td>{new Date(item.requested_at).toLocaleString("en-NG",{dateStyle:"medium",timeStyle:"short"})}</td><td><span className="status-tag">Pending review</span></td></tr>)}</tbody></table></div>}
+           <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>APPLICANT</th><th>ORGANIZATION</th><th>REQUESTED ROLE</th><th>SUBMITTED</th><th>STATUS</th><th>REVIEW</th></tr></thead><tbody>{items.map(item=><tr key={item.membership_id}><td><b>{item.display_name}</b><small>{item.institution_name ?? "Institution not supplied"}{item.course_of_study ? " · " + item.course_of_study : ""}{item.level_of_study ? " · " + item.level_of_study : ""}</small></td><td>{item.organization_name}<small>{label(item.organization_type)}</small></td><td>{label(item.requested_role)}</td><td>{new Date(item.requested_at).toLocaleString("en-NG",{dateStyle:"medium",timeStyle:"short"})}</td><td><span className="status-tag">Pending review</span></td><td><div className="admin-review-actions"><form action={reviewMembership}><input type="hidden" name="membership_id" value={item.membership_id}/><input type="hidden" name="decision" value="approve"/><button type="submit">Approve</button></form><form action={reviewMembership}><input type="hidden" name="membership_id" value={item.membership_id}/><input type="hidden" name="decision" value="reject"/><label><span className="sr-only">Reason for rejection</span><textarea name="reviewer_notes" minLength={10} maxLength={1000} required rows={2} placeholder="Reason for rejection (10–1000 characters)"/></label><button type="submit">Reject</button></form></div></td></tr>)}</tbody></table></div>}
         </section>)}
-        <div className="admin-boundary-note">Review decisions are intentionally not enabled in this frontend milestone. The inspected database has no dedicated membership-approval RPC; we will not improvise a multi-column approval write or bypass the existing authorization design. A reviewed transactional approval/rejection operation must be approved before activation.</div>
+        <div className="admin-boundary-note">Every decision is submitted through the existing transactional review_member_onboarding RPC. The database rechecks the administrator’s organization scope, blocks self-review, confirms the request is still pending, revalidates eligibility on approval, requires a reason for rejection, and writes the membership event atomically. Client-side controls do not grant authority.</div>
       </section>
     </div>
   </main>;
