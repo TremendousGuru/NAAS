@@ -84,3 +84,60 @@ export async function updateMemberProfile(formData: FormData) {
   revalidatePath("/app");
   redirect("/app?profile=saved#profile");
 }
+
+
+export async function requestMembershipTransfer(formData: FormData) {
+  const sourceMembershipId = String(formData.get("source_membership_id") ?? "").trim();
+  const destinationOrgId = String(formData.get("destination_org_id") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 1000);
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuid.test(sourceMembershipId) || !uuid.test(destinationOrgId) || reason.length < 10) {
+    redirect("/app?transfer=invalid#membership");
+  }
+
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+
+  // RLS validates ownership, active source membership, eligible organization
+  // types and active destination. The database also rejects same-org transfers.
+  const { data: source, error: sourceError } = await supabase
+    .from("org_memberships")
+    .select("id,org_id,status,org_units(org_type)")
+    .eq("id", sourceMembershipId)
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (sourceError || !source) redirect("/app?transfer=source-unavailable#membership");
+  if (source.org_id === destinationOrgId) redirect("/app?transfer=same-organization#membership");
+
+  const { error } = await supabase.from("membership_transfer_requests").insert({
+    user_id: user.id,
+    source_membership_id: source.id,
+    source_org_id: source.org_id,
+    destination_org_id: destinationOrgId,
+    reason,
+  });
+  if (error) redirect("/app?transfer=not-submitted#membership");
+  revalidatePath("/app");
+  redirect("/app?transfer=submitted#membership");
+}
+
+export async function cancelMembershipTransfer(formData: FormData) {
+  const transferId = String(formData.get("transfer_id") ?? "").trim();
+  const reason = String(formData.get("cancellation_reason") ?? "").trim().slice(0, 1000);
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+  if (!uuid.test(transferId) || reason.length < 10) redirect("/app?transfer=cancel-invalid#membership");
+
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+
+  const { error } = await supabase.rpc("cancel_membership_transfer", {
+    p_transfer_id: transferId,
+    p_cancellation_reason: reason,
+  });
+  if (error) redirect("/app?transfer=cancel-failed#membership");
+  revalidatePath("/app");
+  redirect("/app?transfer=cancelled#membership");
+}
