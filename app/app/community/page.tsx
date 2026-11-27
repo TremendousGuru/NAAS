@@ -17,7 +17,8 @@ type StatusRow = {
   author_org_id: string | null;
 };
 
-export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string}>}) {\n  const params = await searchParams;
+export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string}>}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
