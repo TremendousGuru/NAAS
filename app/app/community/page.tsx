@@ -17,7 +17,7 @@ type StatusRow = {
   author_org_id: string | null;
 };
 
-export default async function CommunityPage() {
+export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string}>}) {\n  const params = await searchParams;
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
@@ -44,7 +44,7 @@ export default async function CommunityPage() {
         <h1>Global Status</h1>
         <p>Short-lived updates shared across the authenticated NAASCONNECT community. Statuses expire automatically according to their recorded expiry time.</p>
       </header>
-      <section className="directory-search-panel">
+      {params.status && <p className="portal-inline-success" role="status">{params.status === "published" ? "Your status has been published." : params.status === "deleted" ? "Your status has been deleted." : "Status update: " + params.status.replaceAll("-", " ")}</p>}\n      <section className="directory-search-panel">
         <div className="directory-results-head">
           <div><span className="directory-kicker">YOUR COMMUNITY</span><h2>Recent updates <span>{statuses.length}</span></h2></div>
           <span className="directory-count-note">{statuses.length} active updates</span>
