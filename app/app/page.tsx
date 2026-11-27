@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../auth/actions";
-import { publishTextStatus, requestMembership } from "./actions";
+import { publishTextStatus, requestMembership, requestMembershipTransfer, cancelMembershipTransfer } from "./actions";
 import MemberProfileForm from "./MemberProfileForm";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,7 @@ export const revalidate = 0;
 
 type Membership = { id:string; org_id:string; role:string; status:string; org_units:{name:string;org_type:string}|{name:string;org_type:string}[]|null };
 type MembershipEvent = { id:string; org_id:string; event_type:string; created_at:string; org_units:{name:string}|{name:string}[]|null };
+type MembershipTransfer = { id:string; source_membership_id:string; source_org_id:string; destination_org_id:string; reason:string|null; status:string; created_at:string };
 function roleLabel(role:string){return role.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());}
 function organizationName(m:Membership){return Array.isArray(m.org_units)?m.org_units[0]?.name:m.org_units?.name;}
 function eventOrganizationName(e:MembershipEvent){return Array.isArray(e.org_units)?e.org_units[0]?.name:e.org_units?.name;}
@@ -82,12 +83,13 @@ export default async function AuthenticatedApp({searchParams}:{searchParams:Prom
   redirect("/app?security=password-updated#security");
  }
 
- const [profileResult,membershipResult,statusResult,organizationResult,historyResult]=await Promise.all([
+ const [profileResult,membershipResult,statusResult,organizationResult,historyResult,transferResult]=await Promise.all([
   supabase.from("profiles").select("display_name,phone,member_category,institution_name,course_of_study,level_of_study,state_of_admission,residential_state,preferred_region_state,state_of_origin,profile_completed").eq("id",user.id).maybeSingle(),
   supabase.from("org_memberships").select("id,org_id,role,status,org_units(name,org_type)").eq("user_id",user.id).order("created_at",{ascending:false}),
   supabase.from("community_statuses").select("id,content,media_url,created_at,expires_at,author_org_id").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(30),
   supabase.from("org_units").select("id,name,org_type,state_name").eq("status","active").in("org_type",["campus","church"]).order("name"),
-  supabase.from("membership_events").select("id,org_id,event_type,created_at,org_units(name)").eq("user_id",user.id).order("created_at",{ascending:false}).limit(25)
+  supabase.from("membership_events").select("id,org_id,event_type,created_at,org_units(name)").eq("user_id",user.id).order("created_at",{ascending:false}).limit(25),
+  supabase.from("membership_transfer_requests").select("id,source_membership_id,source_org_id,destination_org_id,reason,status,created_at").eq("user_id",user.id).order("created_at",{ascending:false}).limit(20)
  ]);
  const profile=profileResult.data;
  const rows=(membershipResult.data??[]) as unknown as Membership[];
@@ -108,6 +110,21 @@ export default async function AuthenticatedApp({searchParams}:{searchParams:Prom
    <section className="member-panel" id="membership"><div className="member-panel-head"><div><span className="member-eyebrow">YOUR ORGANIZATIONS</span><h2>Memberships & affiliations</h2></div></div>
    {membershipResult.error?<p className="member-empty">Membership information is temporarily unavailable. Your account remains signed in; please refresh shortly.</p>:rows.length===0?<div className="member-empty"><b>Your account is created. Organization membership is a separate step.</b><p>A campus/ASF or participating church affiliation must be submitted and approved by the responsible administrator. Your account does not grant an organization role automatically.</p><span className="member-pending-note">No membership request is recorded yet.</span></div>:<div className="member-list">{rows.map(m=><article key={m.id}><div><b>{organizationName(m)??"Organization"}</b><small>{roleLabel(m.role)} · {m.org_id.slice(0,8)}</small></div><span className={"member-status "+m.status}>{roleLabel(m.status)}</span></article>)}</div>}
    <div className="member-membership-request"><b>Request an organization membership</b><p>{memberCategory==="student"?"Choose your verified campus / Adventist Students Fellowship.":"Choose a participating local church."} Requests remain pending until an authorized administrator reviews them.</p>{(organizationResult.data??[]).filter((org:any)=>memberCategory==="student"?org.org_type==="campus":memberCategory==="non_student"?org.org_type==="church":false).filter((org:any)=>!rows.some(m=>m.org_id===org.id)).map((org:any)=><form action={requestMembership} key={org.id}><input type="hidden" name="org_id" value={org.id}/><span><b>{org.name}</b><small>{org.org_type==="campus"?"Campus / ASF":"Local church"}{org.state_name?" · "+org.state_name:""}</small></span><button type="submit">Request membership</button></form>)}{organizationResult.error?<small>Organization list is temporarily unavailable.</small>:(organizationResult.data??[]).filter((org:any)=>memberCategory==="student"?org.org_type==="campus":memberCategory==="non_student"?org.org_type==="church":false).length===0?<small>No verified active {memberCategory==="student"?"campus / ASF":"local church"} records are currently available in the live directory. Your registration remains saved; the directory must be populated and verified by authorized NAAS administrators before membership requests can be submitted.</small>:null}</div>
+   {typeof params.transfer==="string"&&<p className="member-empty" role="status">{({
+    "submitted":"Your transfer request has been submitted. The source organization must review it first, followed by the destination organization.",
+    "cancelled":"Your pending transfer request has been cancelled.",
+    "invalid":"Choose a valid destination and provide a reason of at least 10 characters.",
+    "source-unavailable":"The source membership is no longer active or could not be verified.",
+    "same-organization":"Choose a different organization from your current membership.",
+    "not-submitted":"We could not submit the transfer request. Check that you do not already have a pending request and try again.",
+    "cancel-invalid":"Provide a valid transfer request and a cancellation reason of at least 10 characters.",
+    "cancel-failed":"The transfer could not be cancelled. It may already have moved to a final state."
+   } as Record<string,string>)[params.transfer]??"Transfer request updated."}</p>}
+   <div className="member-transfer-panel">
+    <div className="member-panel-head"><div><span className="member-eyebrow">MEMBERSHIP LIFECYCLE</span><h3>Transfer membership</h3><p>Move an active membership to another eligible campus/ASF or church. The current organization reviews first; the destination organization reviews second.</p></div></div>
+    {transferResult.error?<p className="member-empty">Transfer requests are temporarily unavailable. Please refresh.</p>:((transferResult.data??[]) as MembershipTransfer[]).length>0?<div className="member-list">{((transferResult.data??[]) as MembershipTransfer[]).map(t=><article key={t.id}><div><b>{organizationName(rows.find(m=>m.org_id===t.source_org_id)??({org_units:null} as unknown as Membership))??"Current organization"} → {(organizationResult.data??[]).find((o:any)=>o.id===t.destination_org_id)?.name??"Destination organization"}</b><small>{t.reason??"No reason supplied"} · {new Date(t.created_at).toLocaleDateString("en-NG",{dateStyle:"medium"})}</small><small>Transfer reference: {t.id.slice(0,8)}</small></div><span className={"member-status "+t.status}>{roleLabel(t.status)}</span>{["pending_source","pending_destination"].includes(t.status)&&<form action={cancelMembershipTransfer} className="member-transfer-cancel"><input type="hidden" name="transfer_id" value={t.id}/><label>Cancellation reason<input name="cancellation_reason" minLength={10} maxLength={1000} required placeholder="Why are you cancelling?"/></label><button type="submit">Cancel request</button></form>}</article>)}</div>:<p className="member-empty">You have no membership transfer requests.</p>}
+    {rows.filter(m=>m.status==="active"&&["campus","church"].includes((Array.isArray(m.org_units)?m.org_units[0]?.org_type:m.org_units?.org_type)??"")).map(source=>{const sourceType=Array.isArray(source.org_units)?source.org_units[0]?.org_type:source.org_units?.org_type;const destinations=(organizationResult.data??[]).filter((org:any)=>org.org_type===sourceType&&org.id!==source.org_id);return <form action={requestMembershipTransfer} className="member-transfer-form" key={source.id}><b>Transfer from {organizationName(source)??"your current organization"}</b><input type="hidden" name="source_membership_id" value={source.id}/><label>Destination organization<select name="destination_org_id" required defaultValue=""><option value="" disabled>Select an eligible organization</option>{destinations.map((org:any)=><option value={org.id} key={org.id}>{org.name}{org.state_name?" · "+org.state_name:""}</option>)}</select></label><label>Reason for transfer<textarea name="reason" required minLength={10} maxLength={1000} rows={3} placeholder="Explain why you are requesting this transfer (at least 10 characters)."/></label><button type="submit" disabled={destinations.length===0}>Submit transfer request</button>{destinations.length===0&&<small>No other active eligible organization of this type is currently available.</small>}</form>})}
+   </div>
    <div className="member-profile-summary"><b>Registration information</b><span>{profile?.institution_name??"Institution not supplied"}</span><span>{memberCategory==="student"?(profile?.state_of_admission?"State of admission: "+profile.state_of_admission:"Admission state not supplied"):memberCategory==="non_student"?(profile?.residential_state?"Residence: "+profile.residential_state:"Residence not supplied")+" · "+(profile?.preferred_region_state?"Preferred church region: "+profile.preferred_region_state:"Preferred church region not supplied"):"Membership category not selected"}</span><span>{profile?.course_of_study??"Course not supplied"}{profile?.level_of_study?" · "+profile.level_of_study:""}</span></div></section>
 
    <section className="member-panel" id="history"><div className="member-panel-head"><div><span className="member-eyebrow">MEMBERSHIP LIFECYCLE</span><h2>Membership activity</h2><p>A record of membership requests, decisions and changes visible to your account.</p></div><span className="member-category">{historyResult.error?"Unavailable":(historyResult.data??[]).length+" events"}</span></div>
