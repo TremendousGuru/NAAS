@@ -65,3 +65,93 @@ export async function reviewMembershipTransfer(formData: FormData) {
   revalidatePath("/app");
   redirect(`/admin?transfer=${decision === "approve" ? "approved" : "rejected"}#transfers`);
 }
+
+
+export async function saveExecutivePortfolio(formData: FormData) {
+  const orgId = String(formData.get("org_id") ?? "").trim();
+  const key = String(formData.get("portfolio_key") ?? "").trim().toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 50);
+  const title = String(formData.get("title") ?? "").trim().slice(0, 100);
+  const description = String(formData.get("description") ?? "").trim().slice(0, 1000);
+  const responsibilities = String(formData.get("responsibilities") ?? "").split("\n").map(value => value.trim()).filter(Boolean).slice(0, 20);
+  const displayOrder = Number.parseInt(String(formData.get("display_order") ?? "100"), 10);
+  const termRaw = String(formData.get("term_duration_months") ?? "").trim();
+  const termDuration = termRaw ? Number.parseInt(termRaw, 10) : null;
+  const isRequired = formData.get("is_required") === "on";
+  if (!UUID.test(orgId) || !/^[a-z][a-z0-9_]{1,49}$/.test(key) || title.length < 2 ||
+      !Number.isInteger(displayOrder) || displayOrder < 0 || displayOrder > 10000 ||
+      (termDuration !== null && (!Number.isInteger(termDuration) || termDuration < 1 || termDuration > 60))) {
+    redirect("/admin/leadership?result=portfolio-invalid");
+  }
+  if (responsibilities.some(item => item.length < 3 || item.length > 300)) {
+    redirect("/admin/leadership?result=portfolio-invalid");
+  }
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { error } = await supabase.rpc("save_executive_portfolio", {
+    p_org_id: orgId, p_portfolio_key: key, p_title: title,
+    p_description: description || null, p_responsibilities: responsibilities,
+    p_display_order: displayOrder, p_is_required: isRequired, p_term_duration_months: termDuration,
+  });
+  if (error) redirect("/admin/leadership?result=portfolio-failed");
+  revalidatePath("/admin/leadership");
+  redirect("/admin/leadership?result=portfolio-saved");
+}
+
+export async function submitLeadershipAppointment(formData: FormData) {
+  const orgId = String(formData.get("org_id") ?? "").trim();
+  const positionKey = String(formData.get("position_key") ?? "").trim();
+  const positionTitle = String(formData.get("position_title") ?? "").trim().slice(0, 100);
+  const incomingUserId = String(formData.get("incoming_user_id") ?? "").trim();
+  const notes = String(formData.get("request_notes") ?? "").trim().slice(0, 1000);
+  if (!UUID.test(orgId) || !/^[a-z][a-z0-9_]{1,49}$/.test(positionKey) ||
+      !UUID.test(incomingUserId) || positionTitle.length < 2) {
+    redirect("/admin/leadership?result=appointment-invalid");
+  }
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { error } = await supabase.rpc("submit_leadership_handover", {
+    p_org_id: orgId, p_position_key: positionKey, p_position_title: positionTitle,
+    p_incoming_user_id: incomingUserId, p_request_notes: notes || null,
+  });
+  if (error) redirect("/admin/leadership?result=appointment-failed");
+  revalidatePath("/admin/leadership");
+  redirect("/admin/leadership?result=appointment-submitted");
+}
+
+export async function reviewLeadershipAppointment(formData: FormData) {
+  const requestId = String(formData.get("request_id") ?? "").trim();
+  const decision = String(formData.get("decision") ?? "").trim();
+  const notes = String(formData.get("reviewer_notes") ?? "").trim().slice(0, 1000);
+  if (!UUID.test(requestId) || !["approved", "rejected"].includes(decision) ||
+      (decision === "rejected" && notes.length < 10)) {
+    redirect("/admin/leadership?result=review-invalid");
+  }
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { error } = await supabase.rpc("review_leadership_handover", {
+    p_request_id: requestId, p_decision: decision, p_reviewer_notes: notes || null,
+  });
+  if (error) redirect("/admin/leadership?result=review-failed");
+  revalidatePath("/admin/leadership");
+  redirect("/admin/leadership?result=review-" + decision);
+}
+
+export async function setExecutiveTerm(formData: FormData) {
+  const positionId = String(formData.get("position_id") ?? "").trim();
+  const termEnd = String(formData.get("term_ends_at") ?? "").trim();
+  const notes = String(formData.get("appointment_notes") ?? "").trim().slice(0, 1000);
+  const parsed = new Date(termEnd);
+  if (!UUID.test(positionId) || !termEnd || Number.isNaN(parsed.getTime())) redirect("/admin/leadership?result=term-invalid");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { error } = await supabase.rpc("set_executive_term", {
+    p_position_id: positionId, p_term_ends_at: parsed.toISOString(), p_appointment_notes: notes || null,
+  });
+  if (error) redirect("/admin/leadership?result=term-failed");
+  revalidatePath("/admin/leadership");
+  redirect("/admin/leadership?result=term-saved");
+}
