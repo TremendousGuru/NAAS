@@ -25,7 +25,7 @@ export async function publishTextStatus(formData: FormData) {
 
 export async function requestMembership(formData: FormData) {
   const orgId = String(formData.get("org_id") ?? "").trim();
-  if (!orgId) redirect("/app?membership=invalid#membership");
+  if (!orgId) redirect("/app/membership?membership=invalid");
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
@@ -36,12 +36,12 @@ export async function requestMembership(formData: FormData) {
   if (error) {
     const code = (error as { code?: string }).code;
     if (code === "42883" || /function .*request_member_onboarding.* does not exist/i.test(error.message)) {
-      redirect("/app?membership=backend-not-ready#membership");
+      redirect("/app/membership?membership=backend-not-ready");
     }
-    redirect("/app?membership=not-submitted#membership");
+    redirect("/app/membership?membership=not-submitted");
   }
   revalidatePath("/app");
-  redirect("/app?membership=submitted#membership");
+  redirect("/app/membership?membership=submitted");
 }
 
 export async function updateMemberProfile(formData: FormData) {
@@ -55,10 +55,10 @@ export async function updateMemberProfile(formData: FormData) {
   const stateOfAdmission = String(formData.get("state_of_admission") ?? "").trim();
   const residentialState = String(formData.get("residential_state") ?? "").trim();
   const preferredRegionState = String(formData.get("preferred_region_state") ?? "").trim();
-  if (displayName.length < 2 || !["student","non_student"].includes(category)) redirect("/app?profile=invalid#profile");
+  if (displayName.length < 2 || !["student","non_student"].includes(category)) redirect("/app/settings?profile=invalid");
   if ((category === "student" && (!institution || !NIGERIAN_STATES.has(stateOfAdmission))) ||
       (category === "non_student" && (!NIGERIAN_STATES.has(residentialState) || !NIGERIAN_STATES.has(preferredRegionState)))) {
-    redirect("/app?profile=region-required#profile");
+    redirect("/app/settings?profile=region-required");
   }
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -78,11 +78,11 @@ export async function updateMemberProfile(formData: FormData) {
     preferred_region_state: category === "non_student" ? preferredRegionState : null,
   }, { onConflict: "id" });
   if (error) {
-    if (/column .* does not exist|schema cache/i.test(error.message)) redirect("/app?profile=backend-not-ready#profile");
-    redirect("/app?profile=not-saved#profile");
+    if (/column .* does not exist|schema cache/i.test(error.message)) redirect("/app/settings?profile=backend-not-ready");
+    redirect("/app/settings?profile=not-saved");
   }
   revalidatePath("/app");
-  redirect("/app?profile=saved#profile");
+  redirect("/app/settings?profile=saved");
 }
 
 
@@ -92,7 +92,7 @@ export async function requestMembershipTransfer(formData: FormData) {
   const reason = String(formData.get("reason") ?? "").trim().slice(0, 1000);
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuid.test(sourceMembershipId) || !uuid.test(destinationOrgId) || reason.length < 10) {
-    redirect("/app?transfer=invalid#membership");
+    redirect("/app/membership?transfer=invalid");
   }
 
   const supabase = await createClient();
@@ -108,8 +108,8 @@ export async function requestMembershipTransfer(formData: FormData) {
     .eq("user_id", user.id)
     .eq("status", "active")
     .maybeSingle();
-  if (sourceError || !source) redirect("/app?transfer=source-unavailable#membership");
-  if (source.org_id === destinationOrgId) redirect("/app?transfer=same-organization#membership");
+  if (sourceError || !source) redirect("/app/membership?transfer=source-unavailable");
+  if (source.org_id === destinationOrgId) redirect("/app/membership?transfer=same-organization");
 
   const { error } = await supabase.from("membership_transfer_requests").insert({
     user_id: user.id,
@@ -118,16 +118,16 @@ export async function requestMembershipTransfer(formData: FormData) {
     destination_org_id: destinationOrgId,
     reason,
   });
-  if (error) redirect("/app?transfer=not-submitted#membership");
+  if (error) redirect("/app/membership?transfer=not-submitted");
   revalidatePath("/app");
-  redirect("/app?transfer=submitted#membership");
+  redirect("/app/membership?transfer=submitted");
 }
 
 export async function cancelMembershipTransfer(formData: FormData) {
   const transferId = String(formData.get("transfer_id") ?? "").trim();
   const reason = String(formData.get("cancellation_reason") ?? "").trim().slice(0, 1000);
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
-  if (!uuid.test(transferId) || reason.length < 10) redirect("/app?transfer=cancel-invalid#membership");
+  if (!uuid.test(transferId) || reason.length < 10) redirect("/app/membership?transfer=cancel-invalid");
 
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -137,9 +137,9 @@ export async function cancelMembershipTransfer(formData: FormData) {
     p_transfer_id: transferId,
     p_cancellation_reason: reason,
   });
-  if (error) redirect("/app?transfer=cancel-failed#membership");
+  if (error) redirect("/app/membership?transfer=cancel-failed");
   revalidatePath("/app");
-  redirect("/app?transfer=cancelled#membership");
+  redirect("/app/membership?transfer=cancelled");
 }
 
 export async function publishCommunityStatus(formData: FormData) {
