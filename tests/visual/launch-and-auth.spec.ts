@@ -1,19 +1,29 @@
 import { test, expect } from "./fixtures";
 
-test("branded intro resolves to the unauthenticated sign-in route", async ({ page }, testInfo) => {
+test("public landing page is the first visitor destination and exposes the portal selector", async ({ page }, testInfo) => {
   const pageErrors: string[] = [];
   page.on("pageerror", error => pageErrors.push(error.message));
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("main", { name: "Loading NAASCONNECT" })).toBeVisible();
-  const introLogo = page.getByRole("img", { name: "NAASCONNECT Nigeria" });
-  await expect(introLogo).toBeVisible();
-  await expect.poll(() => introLogo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-  await page.screenshot({ path: `artifacts/intro-${testInfo.project.name}.png`, fullPage: true });
+  await page.goto("/", { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: /One family/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Join NAASCONNECT" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Events and announcements." })).toBeVisible();
+  const imageFailures = await page.locator("img").evaluateAll(images =>
+    images.filter(img => !img.complete || img.naturalWidth === 0).map(img => img.getAttribute("src"))
+  );
+  expect(imageFailures, "Public landing brand images should load").toEqual([]);
+  const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  expect(hasHorizontalOverflow, "The public landing page should not overflow horizontally").toBe(false);
+  await page.screenshot({ path: `artifacts/public-landing-${testInfo.project.name}.png`, fullPage: true });
 
-  await page.waitForURL(/\/login(?:\?.*)?$/, { timeout: 15000 });
-  await expect(page.getByRole("heading", { name: "Sign in to continue" })).toBeVisible();
-  expect(pageErrors, "The intro route must not throw browser errors").toEqual([]);
+  await page.getByRole("link", { name: "Portals", exact: true }).first().click();
+  await expect(page).toHaveURL(/\\/portals$/);
+  await expect(page.getByRole("heading", { name: /The right portal for your role/ })).toBeVisible();
+  for (const portal of ["Member portal", "National portal", "Union portal", "Zone portal", "Institution / chapter portal"]) {
+    await expect(page.getByRole("heading", { name: portal })).toBeVisible();
+  }
+  expect(pageErrors, "The public routes must not throw browser errors").toEqual([]);
 });
 
 test("login branding assets load and the layout fits the viewport", async ({ page }, testInfo) => {
