@@ -18,7 +18,7 @@ test("public landing page is the first visitor destination and exposes the porta
   await page.screenshot({ path: `artifacts/public-landing-${testInfo.project.name}.png`, fullPage: true });
 
   await page.getByRole("link", { name: "Portals", exact: true }).first().click();
-  await expect(page).toHaveURL(/\\/portals$/);
+  await expect(page).toHaveURL(/portals$/);
   await expect(page.getByRole("heading", { name: /The right portal for your role/ })).toBeVisible();
   for (const portal of ["Member portal", "National portal", "Union portal", "Zone portal", "Institution / chapter portal"]) {
     await expect(page.getByRole("heading", { name: portal })).toBeVisible();
