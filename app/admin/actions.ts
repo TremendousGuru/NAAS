@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function leadershipRedirect(formData: FormData, result: string): never {
+  const scope = String(formData.get("scope") ?? "").trim();
+  const safeScope = ["national", "union", "zone", "institution"].includes(scope) ? scope : "";
+  redirect("/admin/leadership?result=" + result + (safeScope ? "&scope=" + safeScope : ""));
+}
 
 export async function reviewMembership(formData: FormData) {
   const membershipId = String(formData.get("membership_id") ?? "").trim();
@@ -80,10 +85,10 @@ export async function saveExecutivePortfolio(formData: FormData) {
   if (!UUID.test(orgId) || !/^[a-z][a-z0-9_]{1,49}$/.test(key) || title.length < 2 ||
       !Number.isInteger(displayOrder) || displayOrder < 0 || displayOrder > 10000 ||
       (termDuration !== null && (!Number.isInteger(termDuration) || termDuration < 1 || termDuration > 60))) {
-    redirect("/admin/leadership?result=portfolio-invalid");
+    leadershipRedirect(formData, "portfolio-invalid");
   }
   if (responsibilities.some(item => item.length < 3 || item.length > 300)) {
-    redirect("/admin/leadership?result=portfolio-invalid");
+    leadershipRedirect(formData, "portfolio-invalid");
   }
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -93,9 +98,9 @@ export async function saveExecutivePortfolio(formData: FormData) {
     p_description: description || null, p_responsibilities: responsibilities,
     p_display_order: displayOrder, p_is_required: isRequired, p_term_duration_months: termDuration,
   });
-  if (error) redirect("/admin/leadership?result=portfolio-failed");
+  if (error) leadershipRedirect(formData, "portfolio-failed");
   revalidatePath("/admin/leadership");
-  redirect("/admin/leadership?result=portfolio-saved");
+  leadershipRedirect(formData, "portfolio-saved");
 }
 
 export async function submitLeadershipAppointment(formData: FormData) {
@@ -106,7 +111,7 @@ export async function submitLeadershipAppointment(formData: FormData) {
   const notes = String(formData.get("request_notes") ?? "").trim().slice(0, 1000);
   if (!UUID.test(orgId) || !/^[a-z][a-z0-9_]{1,49}$/.test(positionKey) ||
       !UUID.test(incomingUserId) || positionTitle.length < 2) {
-    redirect("/admin/leadership?result=appointment-invalid");
+    leadershipRedirect(formData, "appointment-invalid");
   }
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -115,9 +120,9 @@ export async function submitLeadershipAppointment(formData: FormData) {
     p_org_id: orgId, p_position_key: positionKey, p_position_title: positionTitle,
     p_incoming_user_id: incomingUserId, p_request_notes: notes || null,
   });
-  if (error) redirect("/admin/leadership?result=appointment-failed");
+  if (error) leadershipRedirect(formData, "appointment-failed");
   revalidatePath("/admin/leadership");
-  redirect("/admin/leadership?result=appointment-submitted");
+  leadershipRedirect(formData, "appointment-submitted");
 }
 
 export async function reviewLeadershipAppointment(formData: FormData) {
@@ -126,7 +131,7 @@ export async function reviewLeadershipAppointment(formData: FormData) {
   const notes = String(formData.get("reviewer_notes") ?? "").trim().slice(0, 1000);
   if (!UUID.test(requestId) || !["approved", "rejected"].includes(decision) ||
       (decision === "rejected" && notes.length < 10)) {
-    redirect("/admin/leadership?result=review-invalid");
+    leadershipRedirect(formData, "review-invalid");
   }
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -134,7 +139,7 @@ export async function reviewLeadershipAppointment(formData: FormData) {
   const { error } = await supabase.rpc("review_leadership_handover", {
     p_request_id: requestId, p_decision: decision, p_reviewer_notes: notes || null,
   });
-  if (error) redirect("/admin/leadership?result=review-failed");
+  if (error) leadershipRedirect(formData, "review-failed");
   revalidatePath("/admin/leadership");
   redirect("/admin/leadership?result=review-" + decision);
 }
@@ -144,14 +149,14 @@ export async function setExecutiveTerm(formData: FormData) {
   const termEnd = String(formData.get("term_ends_at") ?? "").trim();
   const notes = String(formData.get("appointment_notes") ?? "").trim().slice(0, 1000);
   const parsed = new Date(termEnd);
-  if (!UUID.test(positionId) || !termEnd || Number.isNaN(parsed.getTime())) redirect("/admin/leadership?result=term-invalid");
+  if (!UUID.test(positionId) || !termEnd || Number.isNaN(parsed.getTime())) leadershipRedirect(formData, "term-invalid");
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
   const { error } = await supabase.rpc("set_executive_term", {
     p_position_id: positionId, p_term_ends_at: parsed.toISOString(), p_appointment_notes: notes || null,
   });
-  if (error) redirect("/admin/leadership?result=term-failed");
+  if (error) leadershipRedirect(formData, "term-failed");
   revalidatePath("/admin/leadership");
-  redirect("/admin/leadership?result=term-saved");
+  leadershipRedirect(formData, "term-saved");
 }
