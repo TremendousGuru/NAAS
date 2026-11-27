@@ -24,41 +24,57 @@ export default async function NotificationsPage() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
-  // This is the existing leadership-event stream, not a claim that a unified
-  // notification inbox or delivery/preferences engine has been implemented.
-  const { data, error } = await supabase
-    .from("leadership_notification_events")
-    .select("id,org_id,handover_request_id,event_type,payload,created_at,delivered_at")
-    .eq("recipient_user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  const events = (data ?? []) as LeadershipEvent[];
+  // Combine the two existing, user-scoped event sources. This is an in-app
+  // activity inbox; it does not claim email/push delivery or read receipts.
+  const [leadershipResult, membershipResult] = await Promise.all([
+    supabase.from("leadership_notification_events")
+      .select("id,org_id,handover_request_id,event_type,payload,created_at,delivered_at")
+      .eq("recipient_user_id", user.id)
+      .order("created_at", { ascending: false }).limit(100),
+    supabase.from("membership_events")
+      .select("id,org_id,event_type,details,created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }).limit(100),
+  ]);
+  const error = leadershipResult.error || membershipResult.error;
+  const events = [
+    ...(leadershipResult.data ?? []).map(item => ({
+      id: item.id, org_id: item.org_id, event_type: item.event_type,
+      details: item.payload, created_at: item.created_at,
+      source: "Leadership", reference_id: item.handover_request_id,
+      delivered_at: item.delivered_at,
+    })),
+    ...(membershipResult.data ?? []).map(item => ({
+      id: item.id, org_id: item.org_id, event_type: item.event_type,
+      details: item.details, created_at: item.created_at,
+      source: "Membership", reference_id: null, delivered_at: null,
+    })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 150);
   return (
     <main className="directory-shell">
       <header className="directory-header">
         <Link href="/app" className="directory-back">← Member workspace</Link>
         <span className="directory-kicker">NAASCONNECT NIGERIA · UPDATES</span>
-        <h1>Leadership notifications</h1>
-        <p>Leadership workflow events addressed to your account. Other notification categories and delivery preferences will be added when their approved backend services are available.</p>
+        <h1>Notifications</h1>
+        <p>Membership decisions and leadership workflow updates addressed to your account, combined in one in-app activity inbox.</p>
       </header>
       {error ? (
         <div className="directory-empty" role="alert"><h3>Notifications could not be loaded</h3><p>Please refresh. If this continues, contact support.</p></div>
       ) : events.length === 0 ? (
-        <div className="directory-empty"><h3>You are all caught up</h3><p>No leadership workflow notifications have been recorded for your account.</p></div>
+        <div className="directory-empty"><h3>You are all caught up</h3><p>No membership or leadership updates have been recorded for your account.</p></div>
       ) : (
         <div className="directory-card-grid">
           {events.map((event) => (
             <article className="directory-card" key={event.id}>
-              <div className="directory-card-top"><span className="directory-org-mark">NAAS</span><span className="directory-active-label">{event.delivered_at ? "Recorded delivery" : "Recorded event"}</span></div>
+              <div className="directory-card-top"><span className="directory-org-mark">NAAS</span><span className="directory-active-label">{event.source}</span></div>
               <h3>{readable(event.event_type)}</h3>
-              <p className="directory-description">A leadership workflow event was recorded for an organization in your authorized notification stream.</p>
-              <div className="directory-meta"><span>{new Date(event.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</span>{event.handover_request_id && <span>Request {event.handover_request_id.slice(0, 8)}</span>}</div>
+              <p className="directory-description">An update was recorded in your {event.source.toLowerCase()} activity.</p>
+              <div className="directory-meta"><span>{new Date(event.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</span>{event.reference_id && <span>Request {event.reference_id.slice(0, 8)}</span>}</div>
             </article>
           ))}
         </div>
       )}
-      <footer className="directory-footer">This page reads the existing leadership notification event source. It does not mark events read or change notification preferences.</footer>
+      <footer className="directory-footer">This inbox combines existing membership and leadership event records. Read receipts, push/email delivery, preferences and event reminders require additional approved backend services.</footer>
     </main>
   );
 }
