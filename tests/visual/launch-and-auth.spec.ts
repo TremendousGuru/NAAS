@@ -7,7 +7,7 @@ test("public landing page is the first visitor destination and exposes the porta
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: /One family/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Join NAASCONNECT" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Events and announcements." })).toBeVisible();
   const imageFailures = await page.locator("img").evaluateAll(images =>
     images.filter(img => !img.complete || img.naturalWidth === 0).map(img => img.getAttribute("src"))
