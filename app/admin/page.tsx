@@ -37,9 +37,20 @@ export default async function AdministratorPage({ searchParams }: { searchParams
     .select("id,org_id,role,status,org_units(name,org_type)")
     .eq("user_id", user.id).eq("status", "active");
 
-  const authorized = ((assignments ?? []) as unknown as Assignment[]).filter(a =>
+  const allAuthorized = ((assignments ?? []) as unknown as Assignment[]).filter(a =>
     ["national_admin", "union_admin", "zone_admin", "campus_admin", "church_admin"].includes(a.role)
   );
+  const requestedScope = typeof params.scope === "string" ? params.scope : "";
+  const scopeRoles: Record<string, string[]> = {
+    national: ["national_admin"],
+    union: ["union_admin"],
+    zone: ["zone_admin"],
+    institution: ["campus_admin", "church_admin"],
+  };
+  if (requestedScope && !scopeRoles[requestedScope]) redirect("/app?access=restricted");
+  const authorized = requestedScope
+    ? allAuthorized.filter(a => scopeRoles[requestedScope].includes(a.role))
+    : allAuthorized;
   if (assignmentError || authorized.length === 0) redirect("/app?access=restricted");
 
   // Read-only queue calls. The database function independently verifies each
@@ -76,6 +87,7 @@ export default async function AdministratorPage({ searchParams }: { searchParams
     </header>
     <div className="member-main admin-route-main">
       <Link href="/app" className="admin-return-link">← Return to member space</Link>
+      <nav className="admin-portal-switcher" aria-label="Your assigned administration portals">{allAuthorized.some(a=>a.role==="national_admin")&&<Link href="/admin?scope=national">National</Link>}{allAuthorized.some(a=>a.role==="union_admin")&&<Link href="/admin?scope=union">Union</Link>}{allAuthorized.some(a=>a.role==="zone_admin")&&<Link href="/admin?scope=zone">Zone</Link>}{allAuthorized.some(a=>["campus_admin","church_admin"].includes(a.role))&&<Link href="/admin?scope=institution">Institution / chapter</Link>}</nav>
       {reviewState === "approved" && <div className="directory-feedback success" role="status">Membership approved. The member’s status and audit history have been updated.</div>}
       {reviewState === "rejected" && <div className="directory-feedback success" role="status">Membership request rejected. The reason has been recorded in the membership history.</div>}
       {(reviewState === "failed" || reviewState === "invalid") && <div className="directory-feedback error" role="alert">The review could not be completed. Refresh the queue and confirm the request is still pending and within your authorized scope.</div>}
@@ -89,7 +101,7 @@ export default async function AdministratorPage({ searchParams }: { searchParams
         <small>Assignments are loaded from the signed-in user's active membership records. Supabase independently enforces every organization scope.</small>
       </div>
       <section className="admin-workspace">
-        <div className="admin-page-heading"><div><div className="section-kicker">AUTHORIZED WORKSPACE</div><h2>Membership review</h2><p>Live pending membership requests within your approved organization scope.</p></div><span className="admin-scope-chip">Scoped queue only</span></div>
+        <div className="admin-page-heading"><div><div className="section-kicker">AUTHORIZED WORKSPACE</div><h2>{requestedScope ? requestedScope.charAt(0).toUpperCase()+requestedScope.slice(1)+" administration" : "Membership review"}</h2><p>Live pending membership requests within your approved organisation scope.</p></div><span className="admin-scope-chip">Scoped queue only</span></div>
         <div className="admin-metrics">
           <article><div className="metric-top"><span>Pending requests in scope</span></div><strong>{totalPending}</strong><small>Live database count</small></article>
           <article><div className="metric-top"><span>Assigned organizations</span></div><strong>{authorized.length}</strong><small>Active administrator assignments</small></article>
