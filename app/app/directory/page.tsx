@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PortalSideNav from "../PortalSideNav";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -54,7 +55,7 @@ export default async function OrganizationDirectory({ searchParams }: {
   const canRequestThisType = type === "campus" ? isStudent : isNonStudent;
 
   return (
-    <main className="directory-shell">
+    <main className="member-app portal-app-frame"><PortalSideNav/><div className="portal-main-column"><header className="portal-main-topbar"><span>NAASCONNECT NIGERIA <i>/</i> MEMBER SPACE</span><Link href="/app">Overview</Link></header><div className="portal-dashboard directory-shell">
       <header className="directory-header">
         <Link href="/app" className="directory-back">← Member workspace</Link>
         <span className="directory-kicker">NAASCONNECT NIGERIA · DISCOVERY</span>
@@ -130,6 +131,6 @@ export default async function OrganizationDirectory({ searchParams }: {
         </div>
       )}
       <footer className="directory-footer">NAASCONNECT Nigeria · Organization information is displayed according to its current approval and visibility status.</footer>
-    </main>
+    </div></div></main>
   );
 }
