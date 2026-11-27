@@ -35,3 +35,33 @@ export async function reviewMembership(formData: FormData) {
   revalidatePath("/app");
   redirect(`/admin?review=${decision === "approve" ? "approved" : "rejected"}`);
 }
+
+export async function reviewMembershipTransfer(formData: FormData) {
+  const transferId = String(formData.get("transfer_id") ?? "").trim();
+  const decision = String(formData.get("decision") ?? "").trim();
+  const reviewerNotes = String(formData.get("reviewer_notes") ?? "").trim().slice(0, 1000);
+
+  if (!UUID.test(transferId) || !["approve", "reject"].includes(decision)) {
+    redirect("/admin?transfer=invalid#transfers");
+  }
+  if (decision === "reject" && reviewerNotes.length < 10) {
+    redirect("/admin?transfer=invalid#transfers");
+  }
+
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+
+  // The RPC independently verifies the actor's authority over the source or
+  // destination organization for the request's current review stage.
+  const { error } = await supabase.rpc("review_membership_transfer", {
+    p_transfer_id: transferId,
+    p_decision: decision,
+    p_reviewer_notes: reviewerNotes || null,
+  });
+
+  if (error) redirect("/admin?transfer=failed#transfers");
+  revalidatePath("/admin");
+  revalidatePath("/app");
+  redirect(`/admin?transfer=${decision === "approve" ? "approved" : "rejected"}#transfers`);
+}
