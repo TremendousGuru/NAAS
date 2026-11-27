@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PortalSideNav from "../../PortalSideNav";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requestDirectoryMembership } from "../actions";
@@ -63,7 +64,7 @@ export default async function OrganizationDetails({ params, searchParams }: {
   const requestState = typeof query.request === "string" ? query.request : "";
 
   return (
-    <main className="directory-shell">
+    <main className="member-app portal-app-frame"><PortalSideNav/><div className="portal-main-column"><header className="portal-main-topbar"><span>NAASCONNECT NIGERIA <i>/</i> MEMBER SPACE</span><Link href="/app">Overview</Link></header><div className="portal-dashboard directory-shell">
       <header className="directory-header directory-detail-header">
         <Link href={`/app/directory?type=${org.org_type}`} className="directory-back">← Back to {org.org_type === "campus" ? "ASF directory" : "church directory"}</Link>
         <span className="directory-kicker">ORGANIZATION PROFILE · ACTIVE LISTING</span>
@@ -127,6 +128,6 @@ export default async function OrganizationDetails({ params, searchParams }: {
         </aside>
       </div>
       <footer className="directory-footer">NAASCONNECT Nigeria · Membership eligibility is verified by the existing secure membership workflow.</footer>
-    </main>
+    </div></div></main>
   );
 }
