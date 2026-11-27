@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { deleteCommunityStatus } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -54,7 +55,7 @@ export default async function CommunityPage() {
               <p className="directory-description" style={{ whiteSpace: "pre-wrap" }}>{status.content}</p>
               {status.media_url && <a className="directory-card-link" href={status.media_url} target="_blank" rel="noreferrer">Open attached media ↗</a>}
               <div className="directory-meta"><span>{new Date(status.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</span><span>Expires {new Date(status.expires_at).toLocaleString("en-NG", { dateStyle: "short", timeStyle: "short" })}</span></div>
-              {status.author_user_id === user.id && <small className="directory-description">Posted by you</small>}
+              {status.author_user_id === user.id && <><small className="directory-description">Posted by you</small><form action={deleteCommunityStatus}><input type="hidden" name="status_id" value={status.id}/><button type="submit">Delete status</button></form></>}
               {status.author_org_id && <small className="directory-description">Organization update</small>}
             </article>
           ))}
