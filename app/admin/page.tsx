@@ -72,7 +72,10 @@ export default async function AdministratorPage({ searchParams }: { searchParams
     .in("status", ["pending_source", "pending_destination"])
     .order("created_at", { ascending: true })
     .limit(100);
-  const transferRequests = transferRows ?? [];
+  const authorizedOrgIds = new Set(authorized.map(assignment => assignment.org_id));
+  const transferRequests = (transferRows ?? []).filter(item =>
+    authorizedOrgIds.has(item.source_org_id) || authorizedOrgIds.has(item.destination_org_id)
+  );
   const transferOrgIds = [...new Set(transferRequests.flatMap(item => [item.source_org_id, item.destination_org_id]))];
   const { data: transferOrganizations } = transferOrgIds.length
     ? await supabase.from("org_units").select("id,name,org_type,state_name").in("id", transferOrgIds)
