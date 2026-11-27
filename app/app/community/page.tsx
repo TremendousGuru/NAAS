@@ -2,7 +2,7 @@ import Link from "next/link";
 import PortalSideNav from "../PortalSideNav";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { deleteCommunityStatus } from "../actions";
+import { deleteCommunityStatus, publishCommunityStatus } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,13 +22,19 @@ export default async function CommunityPage() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
-  const { data, error } = await supabase
-    .from("community_statuses")
-    .select("id,content,media_url,created_at,expires_at,author_user_id,author_org_id")
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false })
-    .limit(100);
-
+  const [statusResult, membershipResult] = await Promise.all([
+    supabase.from("community_statuses")
+      .select("id,content,media_url,created_at,expires_at,author_user_id,author_org_id")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false }).limit(100),
+    supabase.from("org_memberships")
+      .select("id,org_id,role,status,org_units(name,org_type)")
+      .eq("user_id", user.id).eq("status", "active"),
+  ]);
+  const { data, error } = statusResult;
+  const memberships = membershipResult.data ?? [];
+  const activeMembership = memberships.length > 0;
+  const adminMemberships = memberships.filter(item => ["national_admin","union_admin","zone_admin","campus_admin","church_admin"].includes(item.role));
   const statuses = (data ?? []) as StatusRow[];
   return (
     <main className="member-app portal-app-frame"><PortalSideNav/><div className="portal-main-column"><header className="portal-main-topbar"><span>NAASCONNECT NIGERIA <i>/</i> MEMBER SPACE</span><Link href="/app">Overview</Link></header><div className="portal-dashboard directory-shell">
@@ -41,9 +47,19 @@ export default async function CommunityPage() {
       <section className="directory-search-panel">
         <div className="directory-results-head">
           <div><span className="directory-kicker">YOUR COMMUNITY</span><h2>Recent updates <span>{statuses.length}</span></h2></div>
-          <Link className="directory-card-link" href="/app#statuses">Create a status →</Link>
+          <span className="directory-count-note">{statuses.length} active updates</span>
         </div>
       </section>
+      {activeMembership && <section className="portal-content-card community-composer-card">
+        <div className="portal-card-heading"><span>SHARE WITH THE COMMUNITY</span><h2>Publish a status</h2><p>Personal updates are shared under your account. Organisation publishing is limited to active administrator assignments.</p></div>
+        <form action={publishCommunityStatus} className="member-status-composer">
+          <label>Post as<select name="author_org_id" defaultValue=""><option value="">My personal account</option>{adminMemberships.map(item=>{const org=Array.isArray(item.org_units)?item.org_units[0]:item.org_units;return <option key={item.id} value={item.org_id}>{org?.name??"Authorised organisation"}</option>;})}</select></label>
+          <label htmlFor="community-status-content">Your update</label><textarea id="community-status-content" name="content" maxLength={2000} minLength={1} required placeholder="Share an update with the NAASCONNECT community."/>
+          <label>Optional media link<input name="media_url" type="url" placeholder="https://..."/></label><div><small>Visible to authenticated members · Expires after 24 hours</small><button type="submit">Publish status</button></div>
+        </form>
+      </section>}
+      {!activeMembership && <div className="portal-inline-alert">Status publishing becomes available after an organisation membership is approved. <Link href="/app/membership">View membership options</Link></div>}
+      {typeof undefined === "string" ? null : null}
       {error ? (
         <div className="directory-empty" role="alert"><h3>Statuses are temporarily unavailable</h3><p>Refresh the page. If this continues, contact support.</p></div>
       ) : statuses.length === 0 ? (
