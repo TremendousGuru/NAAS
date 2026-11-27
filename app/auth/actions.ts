@@ -14,7 +14,23 @@ export async function signIn(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) redirect("/login?error=We%20could%20not%20sign%20you%20in.%20Check%20your%20details%20and%20confirm%20your%20email.");
-  redirect("/app");
+  const portal = safeText(formData.get("portal"), 24);
+  const destinations: Record<string, { roles: string[]; scope: string }> = {
+    national: { roles: ["national_admin"], scope: "national" },
+    union: { roles: ["union_admin"], scope: "union" },
+    zone: { roles: ["zone_admin"], scope: "zone" },
+    institution: { roles: ["campus_admin", "church_admin"], scope: "institution" },
+  };
+  if (portal === "member" || !portal) redirect("/app");
+  const destination = destinations[portal];
+  if (!destination) redirect("/app");
+  const { data: assignments, error: assignmentError } = await supabase
+    .from("org_memberships").select("id").eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
+    .eq("status", "active").in("role", destination.roles).limit(1);
+  if (assignmentError || !assignments?.length) {
+    redirect("/login?portal=" + portal + "&error=This%20account%20does%20not%20have%20an%20active%20assignment%20for%20that%20portal.");
+  }
+  redirect("/admin?scope=" + destination.scope);
 }
 
 export async function signUp(formData: FormData) {
