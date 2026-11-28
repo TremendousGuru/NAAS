@@ -24,13 +24,28 @@ export async function signIn(formData: FormData) {
   if (portal === "member" || !portal) redirect("/welcome?next=%2Fapp");
   const destination = destinations[portal];
   if (!destination) redirect("/welcome?next=%2Fapp");
+  const { data: { user } } = await supabase.auth.getUser();
   const { data: assignments, error: assignmentError } = await supabase
-    .from("org_memberships").select("id").eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
-    .eq("status", "active").in("role", destination.roles).limit(1);
+    .from("org_memberships")
+    .select("id,org_id,role,org_units(name,org_type)")
+    .eq("user_id", user?.id ?? "")
+    .eq("status", "active")
+    .in("role", destination.roles);
   if (assignmentError || !assignments?.length) {
-    redirect("/login?portal=" + portal + "&error=This%20account%20does%20not%20have%20an%20active%20assignment%20for%20that%20portal.");
+    redirect("/login?portal=" + portal + "&error=This%20account%20does%20not%20have%20an%20active%20administrator%20assignment%20for%20that%20portal.%20An%20authorized%20leader%20must%20appoint%20and%20activate%20your%20account%20first.");
   }
-  redirect("/welcome?next=" + encodeURIComponent("/admin?scope=" + destination.scope));
+  const validAssignments = assignments.filter((item) => {
+    const org = Array.isArray(item.org_units) ? item.org_units[0] : item.org_units;
+    return portal === "national" ? org?.org_type === "national"
+      : portal === "union" ? org?.org_type === "union"
+      : portal === "zone" ? org?.org_type === "zone"
+      : ["campus", "church"].includes(org?.org_type ?? "");
+  });
+  if (!validAssignments.length) redirect("/login?portal=" + portal + "&error=Your%20active%20assignment%20does%20not%20match%20this%20portal.");
+  if (validAssignments.length === 1) {
+    redirect("/welcome?next=" + encodeURIComponent("/admin?scope=" + destination.scope + "&org=" + validAssignments[0].org_id));
+  }
+  redirect("/admin/select?scope=" + destination.scope);
 }
 
 export async function signUp(formData: FormData) {
