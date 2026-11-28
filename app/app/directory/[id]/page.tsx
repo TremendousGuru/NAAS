@@ -41,11 +41,12 @@ export default async function OrganizationDetails({ params, searchParams }: {
   const org = organization as Organization;
 
   const [profileResult, membershipResult] = await Promise.all([
-    supabase.from("profiles").select("member_category,institution_name,state_of_admission,preferred_region_state").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("member_category,institution_name,state_of_admission,preferred_region_state,profile_completed").eq("id", user.id).maybeSingle(),
     supabase.from("org_memberships").select("status,role").eq("user_id", user.id).eq("org_id", org.id).maybeSingle()
   ]);
 
   const category = profileResult.data?.member_category;
+  const profileReady = !profileResult.error && profileResult.data?.profile_completed === true;
   const correctCategory = org.org_type === "campus" ? category === "student" : category === "non_student";
   const currentStatus = membershipResult.data?.status ?? null;
   const membershipCheckFailed = Boolean(membershipResult.error);
@@ -57,7 +58,7 @@ export default async function OrganizationDetails({ params, searchParams }: {
     ? normalized(profileResult.data?.institution_name) === normalized(org.institution_name)
       && normalized(profileResult.data?.state_of_admission) === normalized(org.state_name)
     : normalized(profileResult.data?.preferred_region_state) === normalized(org.state_name);
-  const canSubmit = correctCategory && organizationDetailsReady && eligibilityMatches
+  const canSubmit = profileReady && correctCategory && organizationDetailsReady && eligibilityMatches
     && !membershipCheckFailed && (!currentStatus || currentStatus === "rejected");
   const website = safeWebUrl(org.website_url);
   const whatsapp = safeWebUrl(org.whatsapp_url);
@@ -97,8 +98,8 @@ export default async function OrganizationDetails({ params, searchParams }: {
             <p>We could not confirm your current membership status. Refresh this page before submitting a request.</p>
           ) : currentStatus && currentStatus !== "rejected" ? (
             <div className="directory-current-membership"><b>{currentStatus.replaceAll("_", " ")}</b><p>{currentStatus === "pending" ? "Your request is awaiting an administrator's decision." : currentStatus === "active" ? "You already have an active membership here." : "Your current membership record must be reviewed by an administrator before another request can be made."}</p></div>
-          ) : !profileResult.data ? (
-            <p>Complete your member profile before requesting an organization membership.</p>
+          ) : !profileReady ? (
+            <p>Complete and save your member profile before requesting an organization membership. If your profile is already complete, refresh this page or contact support if the issue continues.</p>
           ) : !correctCategory ? (
             <p>{org.org_type === "campus" ? "Campus / ASF membership requests are available to student members." : "Church membership requests are available to non-student members."} Your profile category does not currently match this directory.</p>
           ) : !organizationDetailsReady ? (
