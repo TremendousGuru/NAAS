@@ -28,7 +28,7 @@ type ModerationReport = {
 
 const readable = (value: string) => value.replaceAll("_", " ").replace(/\\b\\w/g, letter => letter.toUpperCase());
 
-export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string;feed?:string;report?:string}>}) {
+export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string;feed?:string;report?:string;moderation?:string}>}) {
   const params = await searchParams;
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -44,7 +44,7 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
     supabase.from("org_units").select("id,name,org_type").eq("status", "active").order("name").limit(500),
     supabase.from("community_post_reports")
       .select("id,post_id,reason,details,status,created_at,community_posts!inner(id,author_org_id,post_type,title,content,status)")
-      .order("created_at", { ascending: false }).limit(50),
+      .in("status", ["open", "reviewing"]).order("created_at", { ascending: false }).limit(50),
   ]);
   const statuses = (statusResult.data ?? []) as StatusRow[];
   const posts = (postResult.data ?? []) as CommunityPost[];
