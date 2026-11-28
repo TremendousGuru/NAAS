@@ -31,8 +31,9 @@ export async function signIn(formData: FormData) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
     await supabase.auth.signOut();
-    fail("We could not verify this account. Please sign in again.");
+    redirect("/login?portal=" + portal + "&error=We%20could%20not%20verify%20this%20account.%20Please%20sign%20in%20again.");
   }
+  if (!user) redirect("/login?portal=" + portal + "&error=We%20could%20not%20verify%20this%20account.");
 
   const { data: assignments, error: assignmentError } = await supabase
     .from("org_memberships")
