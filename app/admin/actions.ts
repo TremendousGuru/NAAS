@@ -160,3 +160,53 @@ export async function setExecutiveTerm(formData: FormData) {
   revalidatePath("/admin/leadership");
   leadershipRedirect(formData, "term-saved");
 }
+
+
+export async function submitAdminAppointment(formData: FormData) {
+  const seatId = String(formData.get("seat_id") ?? "").trim();
+  const nomineeName = String(formData.get("nominee_name") ?? "").trim().slice(0, 120);
+  const nomineeEmail = String(formData.get("nominee_email") ?? "").trim().toLowerCase().slice(0, 254);
+  if (!UUID.test(seatId) || nomineeName.length < 2 || !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(nomineeEmail)) {
+    redirect("/admin/onboarding?result=invalid");
+  }
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { error } = await supabase.rpc("submit_admin_appointment", {
+    p_seat_id: seatId, p_nominee_name: nomineeName, p_nominee_email: nomineeEmail,
+  });
+  if (error) redirect("/admin/onboarding?result=submit-failed");
+  revalidatePath("/admin/onboarding");
+  redirect("/admin/onboarding?result=submitted");
+}
+
+export async function reviewAdminAppointment(formData: FormData) {
+  const requestId = String(formData.get("request_id") ?? "").trim();
+  const decision = String(formData.get("decision") ?? "").trim();
+  const notes = String(formData.get("reviewer_notes") ?? "").trim().slice(0, 1000);
+  if (!UUID.test(requestId) || !["approved", "rejected"].includes(decision) ||
+      (decision === "rejected" && notes.length < 10)) redirect("/admin/onboarding?result=review-invalid");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { error } = await supabase.rpc("review_admin_appointment", {
+    p_request_id: requestId, p_decision: decision, p_notes: notes || null,
+  });
+  if (error) redirect("/admin/onboarding?result=review-failed");
+  revalidatePath("/admin/onboarding");
+  redirect("/admin/onboarding?result=" + (decision === "approved" ? "approved" : "rejected"));
+}
+
+export async function inviteAdminAppointee(formData: FormData) {
+  const requestId = String(formData.get("request_id") ?? "").trim();
+  if (!UUID.test(requestId)) redirect("/admin/onboarding?result=invite-invalid");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { data, error } = await supabase.functions.invoke("admin-appointment", {
+    body: { action: "invite", request_id: requestId },
+  });
+  if (error || !data?.ok) redirect("/admin/onboarding?result=invite-failed");
+  revalidatePath("/admin/onboarding");
+  redirect("/admin/onboarding?result=invited");
+}
