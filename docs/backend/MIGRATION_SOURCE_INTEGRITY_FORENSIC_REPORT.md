@@ -116,3 +116,22 @@ The expanded comparison confirms 21 exact filename/version alignments, four miss
 Important additional finding: the repository-only `org_foundation` file defines `org_units`, `org_memberships`, and foundational private helpers. Those objects exist live and are prerequisites of later applied migrations, but no matching ledger entry exists. Their historical introduction therefore remains unresolved; the file must not be replayed or treated as a proven applied migration.
 
 The matrix is a read-only current-state reconciliation, not a restorable backup or full schema-only export. The migration synchronization gate remains **NOT PASSED**. No Supabase schema, data, or migration-history changes were performed; no paid branch was created; Phase 5.9 remains blocked.
+
+
+## 9. Additional branch-wide source recovery search — 28 November 2026
+
+A read-only search was performed across all nine branches currently visible in the GitHub repository:
+
+- `backup/2026-11-22-pre-figma`
+- `chore/enable-naasconnect-visual-qa`
+- `feature/naasconnect-batch2c-community`
+- `feature/naasconnect-frontend-foundation`
+- `feature/naasconnect-mobile-multipage-intro`
+- `feature/naasconnect-portal-foundation`
+- `fix/naasconnect-member-portal-auth`
+- `integration/naasconnect-batch2c-preserve-latest`
+- `main`
+
+The recursive Git tree for each branch was inspected for `supabase/migrations`. None contains the four missing original Stage 5.6 SQL files (versions `20261121142038`, `20261121142049`, `20261121142125`, `20261121145225`). The older backup branch also lacks those sources. No source was fabricated, copied from a later schema, or relabelled as original.
+
+**Recovery outcome:** GitHub branch search did not recover the missing originals. The next valid source is an owner-controlled local workstation copy, archived migration bundle, trusted backup, or other authoring-system export. If none exists, a separately approved reconstructed baseline remains the only defensible route. The migration synchronization gate remains **NOT PASSED**; no DDL, migration ledger edits, or replay were performed.
