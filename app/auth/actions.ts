@@ -23,6 +23,8 @@ export async function signIn(formData: FormData) {
   if (!selected) fail("Choose the correct portal before signing in.");
 
   const supabase = await createClient();
+  // A portal switch is a fresh authentication boundary: never carry a prior member/admin session across entry points.
+  await supabase.auth.signOut();
   const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
   if (authError) fail("These credentials are not valid for this portal. Check your details and use the correct entry point.");
 
