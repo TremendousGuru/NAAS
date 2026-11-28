@@ -28,3 +28,18 @@ There are currently no active administrator memberships. The national seat's app
 Applied migrations:
 - `supabase/migrations/20261121132238_stage5_3_admin_appointment_approval_engine.sql`
 - `supabase/migrations/20261121132415_stage5_3_1_harden_admin_appointment_rpc_wrappers.sql`
+
+## Frontend completion update — 28 November 2026
+
+Implemented in `feature/naasconnect-mobile-multipage-intro`:
+- `/admin/onboarding`: lists only RLS-visible reserved seats and appointment requests; authorized administrators can nominate, approve/reject and send invitations through the existing RPC and Edge Function.
+- `/admin/invitation`: verifies the signed-in user matches the invited user ID and exact invited email.
+- `/admin/invitation/complete`: requires the invitee to set a personal password (minimum 12 characters) and complete their display name/phone profile before the acceptance Edge Function activates the membership and seat.
+- The server action rechecks request ownership/status before password/profile changes; the Edge Function independently verifies invitation ownership before activation.
+- Onboarding supports national, union, zone, campus and church administrator roles. The database remains the authority for which seats/requests are visible and which actions are permitted.
+
+## Still externally dependent / not declared complete
+- The first national administrator bootstrap cannot be self-approved and remains blocked until the designated NAAS/church authority identity is formally verified and the controlled bootstrap is completed.
+- Production Supabase Auth SMTP, Site URL, redirect allow-list and Edge Function `APP_ORIGIN` must be configured and email delivery tested.
+- No administrator has been appointed, invited or activated in production. No names/emails were supplied, and no account/credentials were created by the code changes.
+- Real-account end-to-end tests for each jurisdiction and a full invitation-email acceptance test remain necessary after configuration.
