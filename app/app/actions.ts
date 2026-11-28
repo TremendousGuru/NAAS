@@ -289,3 +289,42 @@ export async function reviewCommunityPostReport(formData: FormData) {
   revalidatePath("/app/community");
   redirect("/app/community?moderation=updated");
 }
+
+
+export async function reviewGlobalCommunityPostReport(formData: FormData) {
+  const reportId=String(formData.get("report_id")??"").trim();
+  const status=String(formData.get("status")??"").trim();
+  const note=String(formData.get("review_note")??"").trim();
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reportId) ||
+     !["reviewing","resolved","dismissed"].includes(status) || (note.length>0&&(note.length<10||note.length>1000))) {
+    redirect("/app/community?global_moderation=invalid");
+  }
+  const supabase=await createClient();
+  const {data:{user},error:authError}=await supabase.auth.getUser();
+  if(authError||!user) redirect("/login");
+  const {data,error}=await supabase.functions.invoke("community-moderation",{
+    body:{action:"review",report_id:reportId,status,review_note:note||null}
+  });
+  if(error||!data?.ok) redirect("/app/community?global_moderation=failed");
+  revalidatePath("/app/community");
+  redirect("/app/community?global_moderation=reviewed");
+}
+
+export async function hideGlobalCommunityPost(formData: FormData) {
+  const reportId=String(formData.get("report_id")??"").trim();
+  const postId=String(formData.get("post_id")??"").trim();
+  const note=String(formData.get("review_note")??"").trim();
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!uuid.test(reportId)||!uuid.test(postId)||note.length<10||note.length>1000) {
+    redirect("/app/community?global_moderation=invalid");
+  }
+  const supabase=await createClient();
+  const {data:{user},error:authError}=await supabase.auth.getUser();
+  if(authError||!user) redirect("/login");
+  const {data,error}=await supabase.functions.invoke("community-moderation",{
+    body:{action:"hide_post",report_id:reportId,post_id:postId,review_note:note}
+  });
+  if(error||!data?.ok) redirect("/app/community?global_moderation=failed");
+  revalidatePath("/app/community");
+  redirect("/app/community?global_moderation=hidden");
+}
