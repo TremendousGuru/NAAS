@@ -26,7 +26,7 @@ export default async function OrganizationDirectory({ searchParams }: {
   const requestedPage = typeof params.page === "string" ? Number.parseInt(params.page, 10) : 1;
   const page = Number.isFinite(requestedPage) ? Math.max(1, Math.min(10000, requestedPage)) : 1;
   const pageSize = 24;
-  const safeQuery = query.replace(/[,%()\\\\*]/g, " ").replace(/[^\\p{L}\\p{N}\\s&'/-]/gu, " ").trim().replace(/\\s+/g, " ");
+  const safeQuery = query.replace(/[,%()\\*]/g, " ").replace(/[^\p{L}\p{N}\s&'/-]/gu, " ").trim().replace(/\s+/g, " ");
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
