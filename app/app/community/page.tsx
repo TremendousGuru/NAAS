@@ -14,7 +14,7 @@ type StatusRow = {
 type CommunityPost = {
   id: string; author_user_id: string; author_org_id: string | null;
   audience_org_id: string | null; post_type: string; title: string | null;
-  content: string; media_path: string | null; status: string; published_at: string;
+  content: string; media_path: string | null; media_signed_url?: string | null; status: string; published_at: string;
 };
 
 type ModerationReport = {
@@ -59,7 +59,12 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
       .in("status", ["open", "reviewing"]).order("created_at", { ascending: false }).limit(50),
   ]);
   const statuses = (statusResult.data ?? []) as StatusRow[];
-  const posts = (postResult.data ?? []) as CommunityPost[];
+  const rawPosts = (postResult.data ?? []) as CommunityPost[];
+  const posts = await Promise.all(rawPosts.map(async post => {
+    if (!post.media_path) return post;
+    const { data } = await supabase.storage.from("community-media").createSignedUrl(post.media_path, 3600);
+    return { ...post, media_signed_url: data?.signedUrl ?? null };
+  }));
   const memberships = membershipResult.data ?? [];
   const activeMembership = memberships.length > 0;
   const adminMemberships = memberships.filter(item => ["national_admin","union_admin","zone_admin","campus_admin","church_admin"].includes(item.role));
@@ -95,7 +100,9 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
           "title-required":"Organization announcements need a title of at least three characters.",
           "not-authorized":"You do not have an active administrator assignment for that organization.",
           "membership-required":"An active NAAS membership is required to publish.",
-          "not-published":"The post could not be published. Check your access and try again."
+          "not-published":"The post could not be published. Check your access and try again.",
+          "media-too-large":"Media files must be 10 MB or smaller.", "media-invalid":"Choose a supported image or video file.",
+          "media-upload-failed":"The media upload failed. Please try again."
         } as Record<string,string>)[params.feed] ?? "Community update: " + params.feed.replaceAll("-"," ")}</p>}
         {params.report && <p className="portal-inline-success" role="status">{params.report === "submitted" ? "Thank you. Your report has been submitted for review." : params.report === "rate-limited" ? "You have reached the report limit (5 per hour or 20 per day). Please wait before submitting another report." : "The report could not be submitted. Please try again."}</p>}
         {params.moderation && <p className="portal-inline-success" role="status">{params.moderation === "updated" ? "The report review has been saved." : "The report could not be updated. Your administrator scope may not include this post."}</p>}
@@ -171,7 +178,7 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
             </label>
             <label>Announcement title (required only for organization announcements)<input name="title" maxLength={160} minLength={3} placeholder="Organization announcement title"/></label>
             <label htmlFor="community-post-content">Message</label>
-            <textarea id="community-post-content" name="content" maxLength={5000} minLength={1} required placeholder="Share an update, story or announcement with the community."/>
+            <textarea id="community-post-content" name="content" maxLength={5000} minLength={1} required placeholder="Share an update, story or announcement with the community."/>\n            <label>Photo or video (optional) <input type="file" name="media" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"/></label>\n            <small>Images and MP4/WebM videos · maximum 10 MB per file</small>
             <div><small>Published posts are subject to the community guidelines and reporting process.</small><button type="submit">Publish post</button></div>
           </form>
         </section>}
