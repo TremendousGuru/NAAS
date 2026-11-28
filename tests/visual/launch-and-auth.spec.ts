@@ -6,18 +6,24 @@ test("public landing page is the first visitor destination and exposes the porta
 
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: /One family/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Create your account" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Explore the portals" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Events and announcements." })).toBeVisible();
+
   if (testInfo.project.name.includes("mobile")) {
     await page.getByRole("button", { name: "Open navigation menu" }).click();
     const mobileNav = page.getByRole("navigation", { name: "Mobile navigation" });
-    await expect(mobileNav.getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Join now" })).toBeVisible();
+    await expect(mobileNav.getByRole("link", { name: "About", exact: true })).toBeVisible();
+    await expect(mobileNav.getByRole("link", { name: "Community", exact: true })).toBeVisible();
     await mobileNav.getByRole("link", { name: "Portals", exact: true }).click();
   } else {
-    await expect(page.getByRole("link", { name: "Join NAASCONNECT" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
-    await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Portals", exact: true }).click();
+    await page.getByRole("link", { name: "Explore the portals" }).click();
   }
-  await expect(page.getByRole("heading", { name: "Events and announcements." })).toBeVisible();
+  await expect(page).toHaveURL(/portals$/);
+  await expect(page.getByRole("heading", { name: /The right portal for your role/ })).toBeVisible();
+  for (const portal of ["Member portal", "National portal", "Union portal", "Zone portal", "Institution / chapter portal"]) {
+    await expect(page.getByRole("heading", { name: portal })).toBeVisible();
+  }
   const imageFailures = await page.locator("img").evaluateAll(images =>
     images.filter(img => !img.complete || img.naturalWidth === 0).map(img => img.getAttribute("src"))
   );
@@ -25,12 +31,6 @@ test("public landing page is the first visitor destination and exposes the porta
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow, "The public landing page should not overflow horizontally").toBe(false);
   await page.screenshot({ path: `artifacts/public-landing-${testInfo.project.name}.png`, fullPage: true });
-
-  await expect(page).toHaveURL(/portals$/);
-  await expect(page.getByRole("heading", { name: /The right portal for your role/ })).toBeVisible();
-  for (const portal of ["Member portal", "National portal", "Union portal", "Zone portal", "Institution / chapter portal"]) {
-    await expect(page.getByRole("heading", { name: portal })).toBeVisible();
-  }
   expect(pageErrors, "The public routes must not throw browser errors").toEqual([]);
 });
 
