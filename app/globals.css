@@ -264,3 +264,17 @@
 .portals-grid .portal-card>a{color:var(--portal-accent);font-weight:800}
 .portals-grid .portal-card:hover{background:var(--portal-tint)}
 @media(max-width:720px){.auth-portal-badge{font-size:8px;line-height:1.5}.auth-admin-invite-note{font-size:10px}}
+
+/* Batch 2C persistent community — additive; Global Status styles and layout remain intact. */
+.community-composer,.community-feed,.community-moderation{background:#fff;border:1px solid #e6ebf2;border-radius:14px;padding:22px;margin:18px 0;box-shadow:0 8px 30px rgba(28,45,78,.035)}
+.community-composer h2,.community-section-heading h2,.community-moderation h2{font:800 20px Manrope,sans-serif;margin:6px 0}.community-composer p{font-size:12px;color:#8290a4}
+.community-form,.community-post form{display:grid;gap:12px;margin-top:17px}.community-form label,.community-post label{display:grid;gap:6px;color:#52627a;font-size:11px;font-weight:700}
+.community-form input,.community-form select,.community-form textarea,.community-post select,.community-post textarea{width:100%;border:1px solid #dfe6f0;border-radius:8px;padding:11px;background:#fff;color:#253650;font:inherit;font-size:12px}
+.community-form textarea,.community-post textarea{resize:vertical}.community-form small{color:#8995a7;font-size:10px}.community-submit,.community-post form button{justify-self:start;border:0;border-radius:8px;background:#3158b7;color:#fff;padding:11px 17px;font-size:11px;font-weight:700}
+.community-feedback{padding:12px 15px;border-radius:9px;background:#eef7f2;color:#27744f;font-size:12px}.community-section-heading{display:flex;justify-content:space-between;align-items:center}
+.community-section-heading>span{color:#8995a7;font-size:11px}.community-post{border-top:1px solid #edf0f5;padding:19px 0}.community-post h3{font:700 16px Manrope,sans-serif;margin:8px 0 4px}
+.community-post small{color:#8995a7;font-size:10px}.community-badge{display:inline-block;padding:5px 8px;border-radius:5px;background:#eef3fb;color:#526b9d;font-size:9px;font-weight:800}
+.community-badge.official{background:#fff4df;color:#96671d}.community-post-copy{white-space:pre-wrap;color:#52627a;font-size:13px;line-height:1.7}
+.community-media-link{display:inline-block;color:#3158b7;font-size:11px;font-weight:700;margin-bottom:12px}.community-report summary{cursor:pointer;color:#687991;font-size:10px}
+.community-report form{max-width:440px;padding:12px;background:#f8faff;border-radius:8px}.community-moderation{border-color:#e8dfc9}
+.community-moderation form{max-width:480px}
