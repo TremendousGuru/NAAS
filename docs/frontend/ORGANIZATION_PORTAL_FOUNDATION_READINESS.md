@@ -25,9 +25,8 @@ This preserves the agreed hierarchy: National → Union → Zone → Campus / AS
 
 - `org_units`: 1 active national root, 3 pending union records, 20 pending zone records.
 - `org_admin_seats`: 1 reserved national seat, 3 reserved union seats, 20 reserved zone seats.
-- `org_memberships`: currently zero records; no administrator assignment has yet been activated.
-- No named executive identities or email addresses have been supplied for appointment.
-- No Auth accounts or passwords were created by this work.
+- `org_memberships`: one active `national_admin` assignment has been provisioned for the project owner's initial National administrator. No Union or Zone administrator memberships are active yet.
+- The initial National administrator account is owner-provisioned and has successfully signed in. No Union or Zone nominee identities have been supplied yet; their accounts must be created through the invitation workflow.
 
 The pending organization status is intentionally preserved: the seed migration marks this geography provisional pending formal confirmation. Portal scaffolding and reserved seats do not require promoting these records to active or inventing officers. The owner must explicitly approve any activation that makes these organization records discoverable to signed-in members.
 
@@ -48,14 +47,13 @@ Commits:
 
 ## Important operational distinction
 
-The portal routes are now wired to the existing authorization model, but they are not yet usable by national/union/zone officers because there are no active admin memberships. The 24 seats are reserved, not accounts.
+The portal routes are wired to the existing authorization model. The initial National administrator has signed in successfully. The National seat is active; the three Union and twenty Zone seats remain reserved and are not active administrator accounts.
 
-The existing Stage 5.3 backend appointment and invitation workflow is present. The frontend appointment submission/review/invite and acceptance screens remain outstanding, as recorded in `docs/backend/STAGE5_3_ADMIN_APPOINTMENTS.md`. The first national administrator also requires the documented owner/church-authority bootstrap because the national seat cannot approve itself.
+The Stage 5.3 backend appointment and invitation workflow and its frontend nomination, review, invitation and acceptance screens are present. End-to-end testing with controlled Union and Zone nominees remains outstanding. The first National administrator was provisioned directly by the project owner because the National seat cannot approve itself.
 
-The next required implementation slice is the scoped administrator onboarding UI:
-- National bootstrap/appointment screen for the verified first national appointee.
-- National administrator can nominate and submit union presidents for the three union seats.
-- Union administrator can nominate zone presidents for only its own nine/eight/three zone seats.
+The remaining onboarding work is operational verification of the scoped workflow:
+- National administrator nominates and submits Union presidents for the three Union seats.
+- Each Union administrator nominates Zone presidents only for its own nine/eight/three Zone seats.
 - Parent authority reviews the nomination.
 - Approved nominee receives an individual invitation; nominee accepts, verifies email and activates the assigned role.
 - First login requires personal password setup and completion of executive profile.
@@ -64,11 +62,11 @@ The next required implementation slice is the scoped administrator onboarding UI
 
 ## Batch placement
 
-This portal architecture and login segmentation is a prerequisite foundation for the remaining Batch 2 workspace and should be completed before Batch 3. The underlying organization records, seat reservations, approval RPCs and executive portfolio backend belong to the existing Stage 5 foundation. Their frontend onboarding and operational verification are still open; do not mark them complete merely because the portal links render.
+Portal login segmentation is implemented and the National entry path is confirmed by the owner. Union/Zone onboarding and scoped isolation tests remain open. The Batch 3 organization-management slice has now started with a live, read-only scoped organization overview; the underlying database schema remains unchanged.
 
-## No database changes
+## Database and deployment safety
 
-This pass changed GitHub frontend code and documentation only. No Supabase migration, SQL write, organization activation, membership insertion, invitation, Auth user creation or credential operation was performed.
+No schema migration or organization activation was applied during this portal and Batch 3 UI work. The initial National administrator's Auth metadata, profile, active membership and reserved seat were provisioned/activated through the owner-controlled setup process on 28 November 2026. The three Union and twenty Zone organization records remain pending, and their seats remain reserved. Production migration history remains frozen pending the documented source-integrity recovery gate.
 
 ## Acceptance requirements
 
@@ -77,7 +75,7 @@ This pass changed GitHub frontend code and documentation only. No Supabase migra
 - Each union/zone administrator sees only their assigned organization and descendants.
 - A user with multiple same-level assignments can select one; switching scope remains constrained to active assignments.
 - Member login remains unchanged.
-- Appointment, review, invitation and acceptance flows pass end-to-end with verified test accounts.
+- Appointment, review, invitation and acceptance flows pass end-to-end with controlled Union and Zone test accounts.
 - Mobile and desktop navigation and all five portal entry points pass Playwright checks.
 
 ## Portal separation correction — 28 November 2026
