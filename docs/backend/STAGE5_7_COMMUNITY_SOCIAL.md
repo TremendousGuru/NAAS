@@ -1,7 +1,7 @@
 # NAASCONNECT Nigeria — Stage 5.7 Community & Social Features
 
 **Stage:** 5.7 — Community and platform-wide status updates  
-**Status:** Initial backend foundation implemented; application UI and controlled-account end-to-end verification remain for later frontend/final integration phases.  
+**Status:** Backend foundation and first integrated community feed UI implemented; moderation workflow coverage and controlled-account end-to-end verification remain open.  
 **Supabase project:** NAAS (`csytneubatlaakpmnsfk`)  
 **GitHub repository:** `TremendousGuru/NAAS`
 
@@ -36,7 +36,8 @@ Migration: `20261121162500_stage5_7_global_community_statuses` — [SQL migratio
 - Push/email notifications.
 - Media file upload/storage buckets.
 - Event creation and event management (separate roadmap capability).
-- Frontend feed/status viewer and composer.
+- Media file upload/storage buckets.
+- Community feed UI, personal post composer, scoped organization announcement composer and user post-report submission are now connected to the existing community_posts/community_post_reports tables. Platform-wide report triage for personal posts is not available under the current scoped review policy.
 - Read receipts / status-viewer lists.
 
 These should be implemented only in their corresponding planned stages, without broadening this stage unexpectedly.
@@ -51,3 +52,10 @@ These should be implemented only in their corresponding planned stages, without 
 - Controlled-account positive/negative tests are deferred under the user's approved decision to defer Stage 5.6.8 and consolidate end-to-end testing later.
 - Before release, verify personal posting, organization posting at all five hierarchy levels, platform-wide visibility, unauthorized organization posting/deletion denial, expiry filtering and media URL handling with controlled accounts.
 
+
+
+## Frontend integration update — 28 November 2026
+
+The authenticated `/app/community` route now reads the existing `community_posts` feed, displays community-wide member posts and organization announcements, provides a personal post composer, exposes organization announcement publishing only to users with an active administrator membership for the selected organization, and submits reports to `community_post_reports`. The existing RLS policies remain authoritative. The route also retains the separate 24-hour global status experience.
+
+Outstanding before Stage 5.7 / Batch 2C acceptance: moderation UI for reports within each authorized organization, a platform-wide moderation policy/role for member-authored posts, duplicate-report handling/rate limits, media upload, and controlled-account positive/negative tests. No schema change was made in this UI pass.
