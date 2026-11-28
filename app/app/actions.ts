@@ -251,6 +251,19 @@ export async function reportCommunityPost(formData: FormData) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
+  const hourSince = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const daySince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const [hourCount, dayCount] = await Promise.all([
+    supabase.from("community_post_reports").select("id", { count: "exact", head: true })
+      .eq("reporter_user_id", user.id).gte("created_at", hourSince),
+    supabase.from("community_post_reports").select("id", { count: "exact", head: true })
+      .eq("reporter_user_id", user.id).gte("created_at", daySince),
+  ]);
+  // Fail closed if the abuse-check query cannot be evaluated.
+  if (hourCount.error || dayCount.error) redirect("/app/community?report=not-submitted");
+  if ((hourCount.count ?? 0) >= 5 || (dayCount.count ?? 0) >= 20) {
+    redirect("/app/community?report=rate-limited");
+  }
   const { error } = await supabase.from("community_post_reports").insert({
     post_id: postId,
     reporter_user_id: user.id,
