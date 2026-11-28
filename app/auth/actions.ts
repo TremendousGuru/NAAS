@@ -29,16 +29,16 @@ export async function signIn(formData: FormData) {
   if (authError) fail("These credentials are not valid for this portal. Check your details and use the correct entry point.");
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
+  const verifiedUserId = user?.id;
+  if (userError || !verifiedUserId) {
     await supabase.auth.signOut();
     redirect("/login?portal=" + portal + "&error=We%20could%20not%20verify%20this%20account.%20Please%20sign%20in%20again.");
   }
-  if (!user) redirect("/login?portal=" + portal + "&error=We%20could%20not%20verify%20this%20account.");
 
   const { data: assignments, error: assignmentError } = await supabase
     .from("org_memberships")
     .select("id,org_id,role,org_units(name,org_type)")
-    .eq("user_id", user.id)
+    .eq("user_id", verifiedUserId)
     .eq("status", "active")
     .in("role", selected.roles);
 
