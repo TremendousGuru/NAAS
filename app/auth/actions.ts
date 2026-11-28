@@ -35,24 +35,51 @@ export async function signIn(formData: FormData) {
     redirect("/login?portal=" + portal + "&error=We%20could%20not%20verify%20this%20account.%20Please%20sign%20in%20again.");
   }
 
+  const selectedZoneSlug = safeText(formData.get("org_slug"), 64).toLowerCase();
+  if (portal === "zone" && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(selectedZoneSlug)) {
+    await supabase.auth.signOut();
+    fail("Select the Zone assigned to your administrator account before signing in.");
+  }
+
+  // Member registration creates a profile first; organisation membership is a
+  // separate approval workflow. Do not require an already-active membership
+  // merely to enter the member workspace and submit that first request.
+  if (portal === "member") {
+    const [profileResult, adminResult] = await Promise.all([
+      supabase.from("profiles").select("id").eq("id", verifiedUserId).maybeSingle(),
+      supabase.from("org_memberships").select("id").eq("user_id", verifiedUserId)
+        .eq("status", "active")
+        .in("role", ["national_admin", "union_admin", "zone_admin", "campus_admin", "church_admin"])
+        .limit(1),
+    ]);
+    if (profileResult.error || !profileResult.data || adminResult.error || (adminResult.data ?? []).length > 0) {
+      await supabase.auth.signOut();
+      fail("This account is not eligible for the member portal. Use the administrator portal assigned to your account.");
+    }
+    redirect("/welcome?next=%2Fapp");
+  }
+
   const { data: assignments, error: assignmentError } = await supabase
     .from("org_memberships")
-    .select("id,org_id,role,org_units(name,org_type)")
+    .select("id,org_id,role,org_units(name,org_type,slug)")
     .eq("user_id", verifiedUserId)
     .eq("status", "active")
     .in("role", selected.roles);
 
   const validAssignments = (assignments ?? []).filter((item) => {
     const org = Array.isArray(item.org_units) ? item.org_units[0] : item.org_units;
-    return selected.orgTypes.includes(org?.org_type ?? "");
+    const matchesType = selected.orgTypes.includes(org?.org_type ?? "");
+    const matchesZone = portal !== "zone" || org?.slug === selectedZoneSlug;
+    return matchesType && matchesZone;
   });
 
   if (assignmentError || validAssignments.length === 0) {
     await supabase.auth.signOut();
-    fail("This account does not have an active assignment for the selected portal. Other NAASCONNECT accounts or roles cannot be used here.");
+    fail(portal === "zone"
+      ? "These credentials do not have an active administrator assignment for the selected Zone."
+      : "This account does not have an active assignment for the selected portal. Other NAASCONNECT accounts or roles cannot be used here.");
   }
 
-  if (portal === "member") redirect("/welcome?next=%2Fapp");
   if (validAssignments.length === 1) {
     redirect("/welcome?next=" + encodeURIComponent("/admin?scope=" + selected.scope + "&org=" + validAssignments[0].org_id));
   }
