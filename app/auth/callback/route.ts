@@ -29,8 +29,9 @@ export async function GET(request: NextRequest) {
     };
     const { error: profileError } = await supabase.from("profiles").upsert(profile, { onConflict: "id" });
     if (profileError) {
-      return NextResponse.redirect(new URL("/app?setup=profile", request.url));
+      return NextResponse.redirect(new URL("/welcome?next=%2Fapp%3Fsetup%3Dprofile", request.url));
     }
   }
-  return NextResponse.redirect(new URL(next, request.url));
+  const destination = next === "/reset-password" ? next : "/welcome?next=" + encodeURIComponent(next);
+  return NextResponse.redirect(new URL(destination, request.url));
 }
