@@ -42,6 +42,7 @@
 - 20261128173801_batch2d_register_event_rpc_execute_grant
 - 20261128173815_batch2d_registration_notifications_per_attendee
 - 20261128173833_batch2d_notification_deduplication_index
+- 20261128173905_batch2d_event_trigger_insert_update_safety
 
 Each new applied migration has a matching SQL source file in supabase/migrations on this branch. These are additive migrations and do not replay or rewrite the historical Stage 5.6 ledger entries. The four historical Stage 5.6 SQL statement payloads remain preserved in docs/backend/recovered-ledger-statements; the reconstructed drafts remain evidence artifacts, not migration-runner inputs.
 
