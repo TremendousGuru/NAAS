@@ -76,6 +76,7 @@ export async function updateMemberProfile(formData: FormData) {
     state_of_admission: category === "student" ? stateOfAdmission : null,
     residential_state: category === "non_student" ? residentialState : null,
     preferred_region_state: category === "non_student" ? preferredRegionState : null,
+    profile_completed: true,
   }, { onConflict: "id" });
   if (error) {
     if (/column .* does not exist|schema cache/i.test(error.message)) redirect("/app/settings?profile=backend-not-ready");
