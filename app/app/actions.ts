@@ -221,7 +221,7 @@ export async function publishCommunityPost(formData: FormData) {
     if (uploadError) redirect("/app/community?feed=media-upload-failed");
   }
 
-  const row = orgId ? {
+  const row: any = orgId ? {
     author_user_id:user.id, author_org_id:orgId, audience_org_id:orgId,
     post_type:"announcement", title:titleRaw, content, media_path:mediaPath, status:"published",
   } : {
