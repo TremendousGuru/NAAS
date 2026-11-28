@@ -261,3 +261,31 @@ export async function reportCommunityPost(formData: FormData) {
   revalidatePath("/app/community");
   redirect("/app/community?report=submitted");
 }
+
+
+export async function reviewCommunityPostReport(formData: FormData) {
+  const reportId = String(formData.get("report_id") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim();
+  const reviewNoteRaw = String(formData.get("review_note") ?? "").trim();
+  const reviewNote = reviewNoteRaw || null;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuid.test(reportId) || !["reviewing", "resolved", "dismissed"].includes(status) ||
+      (reviewNote !== null && (reviewNote.length < 10 || reviewNote.length > 1000))) {
+    redirect("/app/community?moderation=invalid");
+  }
+
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+
+  // RLS is the authority for review scope: only reports on organization
+  // posts within the current administrator's assigned scope can be updated.
+  const { data, error } = await supabase.from("community_post_reports").update({
+    status, reviewer_user_id: user.id, review_note: reviewNote,
+    reviewed_at: new Date().toISOString(),
+  }).eq("id", reportId).select("id").maybeSingle();
+
+  if (error || !data) redirect("/app/community?moderation=not-authorized");
+  revalidatePath("/app/community");
+  redirect("/app/community?moderation=updated");
+}
