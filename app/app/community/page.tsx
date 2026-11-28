@@ -2,7 +2,7 @@ import Link from "next/link";
 import PortalSideNav from "../PortalSideNav";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { deleteCommunityStatus, publishCommunityStatus, publishCommunityPost, reportCommunityPost } from "../actions";
+import { deleteCommunityStatus, publishCommunityStatus, publishCommunityPost, reportCommunityPost, reviewCommunityPostReport } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,6 +17,15 @@ type CommunityPost = {
   content: string; media_path: string | null; status: string; published_at: string;
 };
 
+type ModerationReport = {
+  id: string; post_id: string; reason: string; details: string | null;
+  status: string; created_at: string;
+  community_posts: {
+    id: string; author_org_id: string | null; post_type: string;
+    title: string | null; content: string; status: string;
+  } | null;
+};
+
 const readable = (value: string) => value.replaceAll("_", " ").replace(/\\b\\w/g, letter => letter.toUpperCase());
 
 export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string;feed?:string;report?:string}>}) {
@@ -25,7 +34,7 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
-  const [statusResult, membershipResult, postResult, organizationResult] = await Promise.all([
+  const [statusResult, membershipResult, postResult, organizationResult, reportResult] = await Promise.all([
     supabase.from("community_statuses").select("id,content,media_url,created_at,expires_at,author_user_id,author_org_id")
       .gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(50),
     supabase.from("org_memberships").select("id,org_id,role,status,org_units(name,org_type)")
@@ -33,12 +42,21 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
     supabase.from("community_posts").select("id,author_user_id,author_org_id,audience_org_id,post_type,title,content,media_path,status,published_at")
       .eq("status", "published").order("published_at", { ascending: false }).limit(50),
     supabase.from("org_units").select("id,name,org_type").eq("status", "active").order("name").limit(500),
+    supabase.from("community_post_reports")
+      .select("id,post_id,reason,details,status,created_at,community_posts!inner(id,author_org_id,post_type,title,content,status)")
+      .order("created_at", { ascending: false }).limit(50),
   ]);
   const statuses = (statusResult.data ?? []) as StatusRow[];
   const posts = (postResult.data ?? []) as CommunityPost[];
   const memberships = membershipResult.data ?? [];
   const activeMembership = memberships.length > 0;
   const adminMemberships = memberships.filter(item => ["national_admin","union_admin","zone_admin","campus_admin","church_admin"].includes(item.role));
+  const moderationReports = (reportResult.data ?? []) as unknown as ModerationReport[];
+  // Personal member-post reports remain excluded until a global moderation
+  // authority and matching database policy are formally implemented.
+  const scopedModerationReports = adminMemberships.length
+    ? moderationReports.filter(report => Boolean(report.community_posts?.author_org_id))
+    : [];
   const orgs = new Map((organizationResult.data ?? []).map(item => [item.id, item]));
   const feedError = postResult.error || membershipResult.error || organizationResult.error;
   return (
@@ -60,7 +78,31 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
           "not-published":"The post could not be published. Check your access and try again."
         } as Record<string,string>)[params.feed] ?? "Community update: " + params.feed.replaceAll("-"," ")}</p>}
         {params.report && <p className="portal-inline-success" role="status">{params.report === "submitted" ? "Thank you. Your report has been submitted for review." : "The report could not be submitted. Please try again."}</p>}
+        {params.moderation && <p className="portal-inline-success" role="status">{params.moderation === "updated" ? "The report review has been saved." : "The report could not be updated. Your administrator scope may not include this post."}</p>}
         {params.status && <p className="portal-inline-success" role="status">{params.status === "published" ? "Your status has been published." : params.status === "deleted" ? "Your status has been deleted." : "Status update: " + params.status.replaceAll("-"," ")}</p>}
+
+        {adminMemberships.length > 0 && <section className="portal-content-card">
+          <div className="portal-card-heading"><span>ADMIN TOOLS</span><h2>Organization moderation <small>{scopedModerationReports.length}</small></h2><p>Review reports for organization announcements within your assigned scope. Personal member-post moderation is not enabled by the current database policies.</p></div>
+          {reportResult.error ? <div className="directory-empty" role="alert"><h3>Moderation queue unavailable</h3><p>Refresh the page or contact support if this continues.</p></div>
+          : scopedModerationReports.length === 0 ? <div className="directory-empty"><h3>No organization reports awaiting review</h3><p>New reports for announcements in your authorized organization scope will appear here.</p></div>
+          : <div className="directory-card-grid">{scopedModerationReports.map(report => {
+            const post = report.community_posts;
+            if (!post) return null;
+            return <article className="directory-card" key={report.id}>
+              <div className="directory-card-top"><span className="directory-org-mark">REPORT</span><span className="directory-active-label">{report.status.replaceAll("_", " ")}</span></div>
+              {post.title && <h3>{post.title}</h3>}
+              <p className="directory-description" style={{whiteSpace:"pre-wrap"}}>{post.content}</p>
+              <div className="directory-meta"><span>Reason: {readable(report.reason)}</span><span>{new Date(report.created_at).toLocaleString("en-NG",{dateStyle:"medium",timeStyle:"short"})}</span></div>
+              {report.details && <p className="directory-description">Reporter details: {report.details}</p>}
+              <form action={reviewCommunityPostReport} className="member-status-composer">
+                <input type="hidden" name="report_id" value={report.id}/>
+                <label>Review outcome<select name="status" defaultValue={report.status === "open" ? "reviewing" : report.status}><option value="reviewing">Under review</option><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select></label>
+                <label>Review note (optional; at least 10 characters if entered)<textarea name="review_note" maxLength={1000} minLength={10}/></label>
+                <button type="submit">Save review</button>
+              </form>
+            </article>;
+          })}</div>}
+        </section>}
 
         {activeMembership && <section className="portal-content-card community-composer-card">
           <div className="portal-card-heading"><span>COMMUNITY FEED</span><h2>Create a post</h2><p>Members can publish community posts. Active administrators can also publish announcements for their assigned organization.</p></div>
