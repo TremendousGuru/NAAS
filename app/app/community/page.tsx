@@ -2,7 +2,7 @@ import Link from "next/link";
 import PortalSideNav from "../PortalSideNav";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { deleteCommunityStatus, publishCommunityStatus, publishCommunityPost, reportCommunityPost, reviewCommunityPostReport } from "../actions";
+import { deleteCommunityStatus, publishCommunityStatus, publishCommunityPost, reportCommunityPost, reviewCommunityPostReport, reviewGlobalCommunityPostReport, hideGlobalCommunityPost } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,9 +26,21 @@ type ModerationReport = {
   } | null;
 };
 
+type GlobalModerationReport = {
+  id:string; post_id:string; reporter_user_id:string; reason:string;
+  details:string|null; status:string; created_at:string;
+  community_posts:{
+    id:string; author_user_id:string; author_org_id:string|null;
+    post_type:string; title:string|null; content:string; status:string; published_at:string;
+  } | {
+    id:string; author_user_id:string; author_org_id:string|null;
+    post_type:string; title:string|null; content:string; status:string; published_at:string;
+  }[] | null;
+};
+
 const readable = (value: string) => value.replaceAll("_", " ").replace(/\\b\\w/g, letter => letter.toUpperCase());
 
-export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string;feed?:string;report?:string;moderation?:string}>}) {
+export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string;feed?:string;report?:string;moderation?:string;global_moderation?:string}>}) {
   const params = await searchParams;
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -51,6 +63,14 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
   const memberships = membershipResult.data ?? [];
   const activeMembership = memberships.length > 0;
   const adminMemberships = memberships.filter(item => ["national_admin","union_admin","zone_admin","campus_admin","church_admin"].includes(item.role));
+  const isNationalAdmin = adminMemberships.some(item => item.role === "national_admin");
+  let globalModerationReports: GlobalModerationReport[] = [];
+  let globalModerationError = false;
+  if (isNationalAdmin) {
+    const { data, error } = await supabase.functions.invoke("community-moderation", { body: { action: "list" } });
+    if (error || !data?.ok) globalModerationError = true;
+    else globalModerationReports = (data.reports ?? []) as GlobalModerationReport[];
+  }
   const moderationReports = (reportResult.data ?? []) as unknown as ModerationReport[];
   // Personal member-post reports remain excluded until a global moderation
   // authority and matching database policy are formally implemented.
@@ -79,7 +99,43 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
         } as Record<string,string>)[params.feed] ?? "Community update: " + params.feed.replaceAll("-"," ")}</p>}
         {params.report && <p className="portal-inline-success" role="status">{params.report === "submitted" ? "Thank you. Your report has been submitted for review." : "The report could not be submitted. Please try again."}</p>}
         {params.moderation && <p className="portal-inline-success" role="status">{params.moderation === "updated" ? "The report review has been saved." : "The report could not be updated. Your administrator scope may not include this post."}</p>}
+        {params.global_moderation && <p className="portal-inline-success" role="status">{({
+          reviewed:"Personal-post report review saved.",
+          hidden:"The reported personal post has been hidden from the community feed.",
+          invalid:"Check the report, decision and moderation note.",
+          failed:"The platform moderation action could not be completed. Confirm your National administrator access and try again."
+        } as Record<string,string>)[params.global_moderation] ?? "Platform moderation update."}</p>}
         {params.status && <p className="portal-inline-success" role="status">{params.status === "published" ? "Your status has been published." : params.status === "deleted" ? "Your status has been deleted." : "Status update: " + params.status.replaceAll("-"," ")}</p>}
+
+        {isNationalAdmin && <section className="portal-content-card">
+          <div className="portal-card-heading"><span>NATIONAL ADMINISTRATION</span><h2>Platform-wide member-post moderation <small>{globalModerationReports.length}</small></h2><p>National administrators can review reports on personal member posts across the platform. This queue is separate from organization-scoped announcement moderation.</p></div>
+          {globalModerationError ? <div className="directory-empty" role="alert"><h3>Platform moderation queue unavailable</h3><p>The National moderation service did not return a valid response. Refresh or contact support if this continues.</p></div>
+          : globalModerationReports.length===0 ? <div className="directory-empty"><h3>No personal-post reports awaiting review</h3><p>New reports about personal member posts will appear here.</p></div>
+          : <div className="directory-card-grid">{globalModerationReports.map(report=>{
+            const post=Array.isArray(report.community_posts)?report.community_posts[0]:report.community_posts;
+            if(!post) return null;
+            return <article className="directory-card" key={report.id}>
+              <div className="directory-card-top"><span className="directory-org-mark">MEMBER POST</span><span className="directory-active-label">{report.status.replaceAll("_"," ")}</span></div>
+              {post.title&&<h3>{post.title}</h3>}
+              <p className="directory-description" style={{whiteSpace:"pre-wrap"}}>{post.content}</p>
+              <div className="directory-meta"><span>Reason: {readable(report.reason)}</span><span>Reported {new Date(report.created_at).toLocaleString("en-NG",{dateStyle:"medium",timeStyle:"short"})}</span></div>
+              <p className="directory-meta">Reporter reference: {report.reporter_user_id.slice(0,8)} · Post status: {readable(post.status)}</p>
+              {report.details&&<p className="directory-description">Reporter details: {report.details}</p>}
+              <form action={reviewGlobalCommunityPostReport} className="member-status-composer">
+                <input type="hidden" name="report_id" value={report.id}/>
+                <label>Review outcome<select name="status" defaultValue={report.status}><option value="reviewing">Under review</option><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select></label>
+                <label>Review note (optional; at least 10 characters if entered)<textarea name="review_note" minLength={10} maxLength={1000}/></label>
+                <button type="submit">Save report review</button>
+              </form>
+              {post.status==="published"&&<form action={hideGlobalCommunityPost} className="member-status-composer">
+                <input type="hidden" name="report_id" value={report.id}/>
+                <input type="hidden" name="post_id" value={post.id}/>
+                <label>Reason for hiding this post (required)<textarea name="review_note" required minLength={10} maxLength={1000}/></label>
+                <button type="submit">Hide post from community</button>
+              </form>}
+            </article>;
+          })}</div>}
+        </section>}
 
         {adminMemberships.length > 0 && <section className="portal-content-card">
           <div className="portal-card-heading"><span>ADMIN TOOLS</span><h2>Organization moderation <small>{scopedModerationReports.length}</small></h2><p>Review reports for organization announcements within your assigned scope. Personal member-post moderation is not enabled by the current database policies.</p></div>
