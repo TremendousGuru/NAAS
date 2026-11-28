@@ -6,8 +6,7 @@ export const dynamic="force-dynamic";
 export const revalidate=0;
 
 type StructureRow={id:string;parent_id:string|null;org_type:string;name:string;state_name:string|null;status:string;member_count:number;student_count:number;institution_count:number};
-type AdminAssignment={org_id:string;role:string;org_units:{name:string;org_type:string}|{name:string;org_type:string}[]|null};
-const nameOf=(v:AdminAssignment["org_units"])=>Array.isArray(v)?v[0]?.name:v?.name;
+type AdminAssignment={org_id:string;role:string};
 
 export default async function NationalStructurePage({searchParams}:{searchParams:Promise<{org?:string}>}){
  const params=await searchParams;
