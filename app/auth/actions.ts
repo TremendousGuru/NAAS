@@ -35,6 +35,27 @@ export async function signIn(formData: FormData) {
     redirect("/login?portal=" + portal + "&error=We%20could%20not%20verify%20this%20account.%20Please%20sign%20in%20again.");
   }
 
+  // Member identity is established by the authenticated account and its durable
+  // profile. Organizational membership is a separate approval workflow: a
+  // newly registered member must be able to enter the workspace before any
+  // campus/church membership request has been approved.
+  if (portal === "member") {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", verifiedUserId)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut();
+      fail("This account does not have a NAASCONNECT member profile. Please register through the member portal or contact support.");
+    }
+
+    redirect("/welcome?next=%2Fapp");
+  }
+
+  // Administrative entry remains strictly assignment-based. A valid Auth
+  // identity alone never grants National, Union, Zone or Institution access.
   const { data: assignments, error: assignmentError } = await supabase
     .from("org_memberships")
     .select("id,org_id,role,org_units(name,org_type)")
@@ -51,8 +72,6 @@ export async function signIn(formData: FormData) {
     await supabase.auth.signOut();
     fail("This account does not have an active assignment for the selected portal. Other NAASCONNECT accounts or roles cannot be used here.");
   }
-
-  if (portal === "member") redirect("/welcome?next=%2Fapp");
   if (validAssignments.length === 1) {
     redirect("/welcome?next=" + encodeURIComponent("/admin?scope=" + selected.scope + "&org=" + validAssignments[0].org_id));
   }
