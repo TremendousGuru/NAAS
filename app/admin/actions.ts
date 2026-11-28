@@ -218,10 +218,37 @@ export async function acceptAdminInvitation(formData: FormData) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
+  redirect("/admin/invitation/complete?request_id=" + requestId);
+}
+
+export async function completeAdminInvitation(formData: FormData) {
+  const requestId = String(formData.get("request_id") ?? "").trim();
+  const displayName = String(formData.get("display_name") ?? "").trim().slice(0, 120);
+  const phone = String(formData.get("phone") ?? "").trim().slice(0, 32);
+  const password = String(formData.get("password") ?? "");
+  const confirmation = String(formData.get("password_confirmation") ?? "");
+  if (!UUID.test(requestId) || displayName.length < 2 || password.length < 12 || password !== confirmation) {
+    redirect("/admin/invitation/complete?request_id=" + requestId + "&result=invalid");
+  }
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user?.email) redirect("/login");
+  const { data: request, error: requestError } = await supabase.from("admin_appointment_requests")
+    .select("id,nominee_email,invited_user_id,status").eq("id", requestId).maybeSingle();
+  if (requestError || !request || request.status !== "invited" || request.invited_user_id !== user.id ||
+      request.nominee_email.toLowerCase() !== user.email.toLowerCase()) {
+    redirect("/login?error=This%20invitation%20does%20not%20belong%20to%20your%20account");
+  }
+  const { error: passwordError } = await supabase.auth.updateUser({ password });
+  if (passwordError) redirect("/admin/invitation/complete?request_id=" + requestId + "&result=password-failed");
+  const { error: profileError } = await supabase.from("profiles").upsert({
+    id: user.id, display_name: displayName, phone: phone || null, profile_completed: true
+  }, { onConflict: "id" });
+  if (profileError) redirect("/admin/invitation/complete?request_id=" + requestId + "&result=profile-failed");
   const { data, error } = await supabase.functions.invoke("admin-appointment", {
     body: { action: "accept", request_id: requestId },
   });
-  if (error || !data?.ok) redirect("/admin/invitation?request_id=" + requestId + "&result=failed");
+  if (error || !data?.ok) redirect("/admin/invitation/complete?request_id=" + requestId + "&result=activation-failed");
   revalidatePath("/admin");
   redirect("/welcome?next=%2Fadmin");
 }
