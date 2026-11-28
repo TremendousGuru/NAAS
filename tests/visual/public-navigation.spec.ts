@@ -21,6 +21,9 @@ test("public navigation opens as a mobile menu and visits real pages", async ({ 
 
 test("public destinations are separate pages with working browser history", async ({ page }) => {
   await page.goto("/");
+  if (page.viewportSize()!.width < 768) {
+    await page.getByRole("button", { name: "Open navigation menu" }).click();
+  }
   await page.getByRole("link", { name: "About", exact: true }).first().click();
   await expect(page).toHaveURL(/\/about$/);
   await page.getByRole("link", { name: "Community", exact: true }).first().click();
