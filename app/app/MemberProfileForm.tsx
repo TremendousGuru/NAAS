@@ -27,11 +27,11 @@ export default function MemberProfileForm({ action, profile, displayName, metada
    <label>Institution / school<input name="institution_name" required maxLength={180} defaultValue={profile?.institution_name ?? meta("institution_name")}/></label>
    <label>Course of study<input name="course_of_study" maxLength={120} defaultValue={profile?.course_of_study ?? meta("course_of_study")}/></label>
    <label>Level of study<input name="level_of_study" maxLength={80} defaultValue={profile?.level_of_study ?? meta("level_of_study")}/></label>
-   <label>State of admission<select name="state_of_admission" required defaultValue={profile?.state_of_admission ?? meta("state_of_admission")}><option value="">Choose state</option>{states.map(s=><option key={s}>{s}</option>)}</select></label>
+   <label>State where your institution is located<select name="state_of_admission" required defaultValue={profile?.state_of_admission ?? meta("state_of_admission")}><option value="">Choose state</option>{states.map(s=><option key={s}>{s}</option>)}</select></label>
   </fieldset>}
   {category === "non_student" && <fieldset className="profile-fieldset"><legend>Non-student / church details</legend>
    <label>Residential state<select name="residential_state" required defaultValue={profile?.residential_state ?? meta("residential_state")}><option value="">Choose state of residence</option>{states.map(s=><option key={s}>{s}</option>)}</select></label>
-   <label>Preferred church region<select name="preferred_region_state" required defaultValue={profile?.preferred_region_state ?? meta("preferred_region_state")}><option value="">Choose preferred region</option>{states.map(s=><option key={s}>{s}</option>)}</select></label>
+   <label>Preferred church / administrative region<select name="preferred_region_state" required defaultValue={profile?.preferred_region_state ?? meta("preferred_region_state")}><option value="">Choose preferred region</option>{states.map(s=><option key={s}>{s}</option>)}</select></label>
    <p className="profile-help">Your residential state and preferred church region are separate details. Church eligibility is checked against your preferred region.</p>
   </fieldset>}
   <label>State of origin<input name="state_of_origin" maxLength={80} defaultValue={profile?.state_of_origin ?? meta("state_of_origin")}/></label>
