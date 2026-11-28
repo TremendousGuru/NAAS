@@ -26,7 +26,12 @@ test("public destinations are separate pages with working browser history", asyn
   }
   await page.getByRole("link", { name: "About", exact: true }).first().click();
   await expect(page).toHaveURL(/\/about$/);
-  await page.getByRole("link", { name: "Community", exact: true }).first().click();
+  if (page.viewportSize()!.width < 768) {
+    await page.getByRole("button", { name: "Open navigation menu" }).click();
+    await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Community", exact: true }).click();
+  } else {
+    await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Community", exact: true }).click();
+  }
   await expect(page).toHaveURL(/\/community$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/about$/);
