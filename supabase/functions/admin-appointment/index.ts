@@ -18,7 +18,9 @@ Deno.serve(async (req) => {
   if(r.status!=="approved") return json({error:"Appointment has not been approved"},409);
   const {data:s,error:se}=await admin.from("org_admin_seats").select("id,org_id,admin_role,status").eq("id",r.seat_id).single();
   if(se||!s||s.status!=="awaiting_appointee") return json({error:"Administrator seat is not ready"},409);
-  const {data:inv,error:ie}=await admin.auth.admin.inviteUserByEmail(r.nominee_email,{data:{full_name:r.nominee_name,naasconnect_admin_request:r.id}});
+  const appOrigin=Deno.env.get("APP_ORIGIN"); if(!appOrigin) return json({error:"APP_ORIGIN is not configured"},500);
+  const redirectTo=new URL("/auth/callback?next="+encodeURIComponent("/admin/invitation?request_id="+r.id),appOrigin).toString();
+  const {data:inv,error:ie}=await admin.auth.admin.inviteUserByEmail(r.nominee_email,{options:{redirectTo,data:{full_name:r.nominee_name,naasconnect_admin_request:r.id}}});
   if(ie||!inv.user) return json({error:ie?.message??"Invitation failed"},502);
   const {error:me}=await admin.from("org_memberships").upsert({org_id:s.org_id,user_id:inv.user.id,role:s.admin_role,status:"pending",approved_by:user.id,approved_at:new Date().toISOString(),joined_at:null},{onConflict:"org_id,user_id"});
   if(me) return json({error:"Invitation sent; membership provisioning requires reconciliation",detail:me.message},500);
