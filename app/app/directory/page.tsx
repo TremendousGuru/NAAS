@@ -21,34 +21,44 @@ export default async function OrganizationDirectory({ searchParams }: {
   const params = await searchParams;
   const type = params.type === "church" ? "church" : "campus";
   const query = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
-  const state = typeof params.state === "string" ? params.state.trim() : "";
+  const requestedState = typeof params.state === "string" ? params.state.trim() : "";
+  const state = NIGERIAN_STATES.includes(requestedState) ? requestedState : "";
+  const requestedPage = typeof params.page === "string" ? Number.parseInt(params.page, 10) : 1;
+  const page = Number.isFinite(requestedPage) ? Math.max(1, Math.min(10000, requestedPage)) : 1;
+  const pageSize = 24;
+  const safeQuery = query.replace(/[,%()\\\\*]/g, " ").replace(/[^\\p{L}\\p{N}\\s&'/-]/gu, " ").trim().replace(/\\s+/g, " ");
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
+  let organizationsQuery = supabase.from("org_units")
+    .select("id,name,org_type,state_name,conference_name,institution_name,description", { count: "exact" })
+    .eq("status", "active")
+    .eq("org_type", type)
+    .order("name", { ascending: true });
+  if (safeQuery) {
+    const pattern = "%" + safeQuery + "%";
+    organizationsQuery = organizationsQuery.or(
+      "name.ilike." + pattern +
+      ",institution_name.ilike." + pattern +
+      ",state_name.ilike." + pattern +
+      ",conference_name.ilike." + pattern +
+      ",description.ilike." + pattern
+    );
+  }
+  if (state) organizationsQuery = organizationsQuery.ilike("state_name", "%" + state + "%");
+
   const [organizationsResult, profileResult] = await Promise.all([
-    supabase.from("org_units")
-      .select("id,name,org_type,state_name,conference_name,institution_name,description")
-      .eq("status", "active")
-      .eq("org_type", type)
-      .order("name", { ascending: true })
-      .limit(250),
+    organizationsQuery.range((page - 1) * pageSize, page * pageSize - 1),
     supabase.from("profiles")
       .select("member_category,state_of_admission,preferred_region_state,institution_name,profile_completed")
       .eq("id", user.id)
       .maybeSingle()
   ]);
 
-  const allOrganizations = (organizationsResult.data ?? []) as DirectoryOrganization[];
-  const normalizedQuery = query.toLocaleLowerCase();
-  const normalizedState = state.toLocaleLowerCase();
-  const organizations = allOrganizations.filter((organization) => {
-    const searchable = [organization.name, organization.institution_name, organization.state_name, organization.conference_name, organization.description]
-      .filter(Boolean).join(" ").toLocaleLowerCase();
-    const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery);
-    const matchesState = !normalizedState || (organization.state_name ?? "").toLocaleLowerCase().includes(normalizedState);
-    return matchesQuery && matchesState;
-  });
+  const organizations = (organizationsResult.data ?? []) as DirectoryOrganization[];
+  const totalOrganizations = organizationsResult.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalOrganizations / pageSize));
 
   const isStudent = profileResult.data?.member_category === "student";
   const isNonStudent = profileResult.data?.member_category === "non_student";
@@ -90,7 +100,7 @@ export default async function OrganizationDirectory({ searchParams }: {
       <div className="directory-results-head">
         <div>
           <span className="directory-kicker">{type === "campus" ? "ADVENTIST STUDENTS FELLOWSHIPS" : "SEVENTH-DAY ADVENTIST CHURCHES"}</span>
-          <h2>{type === "campus" ? "Campus fellowships" : "Churches"} <span>{organizations.length}</span></h2>
+          <h2>{type === "campus" ? "Campus fellowships" : "Churches"} <span>{totalOrganizations}</span></h2>
         </div>
         <p>{canRequestThisType ? "Your completed profile is eligible to request membership from a matching organization." : type === "campus" ? "Complete a student profile to request campus membership." : "Complete a non-student profile to request church membership."}</p>
       </div>
@@ -104,7 +114,7 @@ export default async function OrganizationDirectory({ searchParams }: {
       ) : organizations.length === 0 ? (
         <div className="directory-empty">
           <div className="directory-empty-icon">⌕</div>
-          <h3>{allOrganizations.length === 0 ? "No active listings yet" : "No matching organizations"}</h3>
+          <h3>{totalOrganizations === 0 ? "No active listings yet" : "No matching organizations"}</h3>
           <p>{allOrganizations.length === 0
             ? `There are currently no active ${type === "campus" ? "campus / ASF" : "church"} records in the directory. Organization records must be added and activated by authorized administrators before they become discoverable. No sample or unverified listings are being displayed.`
             : "Try a different name or clear the selected state filter to see more results."}</p>
@@ -130,6 +140,11 @@ export default async function OrganizationDirectory({ searchParams }: {
           ))}
         </div>
       )}
+      {totalOrganizations > 0 && <nav className="directory-pagination" aria-label="Directory pages">
+        {page > 1 ? <Link href={`/app/directory?type=${type}&q=${encodeURIComponent(query)}&state=${encodeURIComponent(state)}&page=${page-1}`}>← Previous</Link> : <span aria-disabled="true">← Previous</span>}
+        <span>Page {page} of {totalPages}</span>
+        {page < totalPages ? <Link href={`/app/directory?type=${type}&q=${encodeURIComponent(query)}&state=${encodeURIComponent(state)}&page=${page+1}`}>Next →</Link> : <span aria-disabled="true">Next →</span>}
+      </nav>}
       <footer className="directory-footer">NAASCONNECT Nigeria · Organization information is displayed according to its current approval and visibility status.</footer>
     </div></div></main>
   );
