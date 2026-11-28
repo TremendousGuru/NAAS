@@ -21,16 +21,16 @@ export async function signIn(formData: FormData) {
     zone: { roles: ["zone_admin"], scope: "zone" },
     institution: { roles: ["campus_admin", "church_admin"], scope: "institution" },
   };
-  if (portal === "member" || !portal) redirect("/app");
+  if (portal === "member" || !portal) redirect("/welcome?next=%2Fapp");
   const destination = destinations[portal];
-  if (!destination) redirect("/app");
+  if (!destination) redirect("/welcome?next=%2Fapp");
   const { data: assignments, error: assignmentError } = await supabase
     .from("org_memberships").select("id").eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
     .eq("status", "active").in("role", destination.roles).limit(1);
   if (assignmentError || !assignments?.length) {
     redirect("/login?portal=" + portal + "&error=This%20account%20does%20not%20have%20an%20active%20assignment%20for%20that%20portal.");
   }
-  redirect("/admin?scope=" + destination.scope);
+  redirect("/welcome?next=" + encodeURIComponent("/admin?scope=" + destination.scope));
 }
 
 export async function signUp(formData: FormData) {
