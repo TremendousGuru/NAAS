@@ -352,7 +352,8 @@ export async function createCommunityEvent(formData: FormData) {
   const organizerOrgId=String(formData.get("organizer_org_id")??"").trim();
   const requiresRegistration=formData.get("requires_registration")==="on";
   const cover=formData.get("cover");
-  const startsAt=new Date(startsRaw.length===16?startsRaw+":00+01:00":startsRaw), endsAt=new Date(endsRaw.length===16?endsRaw+":00+01:00":endsRaw);\n  const deadlineDate=deadlineRaw?new Date(deadlineRaw.length===16?deadlineRaw+":00+01:00":deadlineRaw):null;
+  const startsAt=new Date(startsRaw.length===16?startsRaw+":00+01:00":startsRaw), endsAt=new Date(endsRaw.length===16?endsRaw+":00+01:00":endsRaw);
+  const deadlineDate=deadlineRaw?new Date(deadlineRaw.length===16?deadlineRaw+":00+01:00":deadlineRaw):null;
   if(title.length<4||description.length<10||!["in_person","online","hybrid"].includes(mode)||!startsRaw||!endsRaw||!Number.isFinite(startsAt.getTime())||!Number.isFinite(endsAt.getTime())||startsAt<=new Date()||endsAt<=startsAt||(deadlineRaw&&(!deadlineDate||!Number.isFinite(deadlineDate.getTime())||deadlineDate>startsAt))) redirect("/app/events?result=invalid");
   if(mode!=="online"&&!venue) redirect("/app/events?result=venue-required");
   let meetingUrl:string|null=null;
