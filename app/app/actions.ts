@@ -185,3 +185,79 @@ export async function deleteCommunityStatus(formData: FormData) {
   revalidatePath("/app"); revalidatePath("/app/community");
   redirect("/app/community?status=deleted");
 }
+
+
+export async function publishCommunityPost(formData: FormData) {
+  const content = String(formData.get("content") ?? "").trim().slice(0, 5000);
+  const titleRaw = String(formData.get("title") ?? "").trim().slice(0, 160);
+  const orgId = String(formData.get("author_org_id") ?? "").trim();
+  if (content.length < 1) redirect("/app/community?feed=empty");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+
+  if (orgId) {
+    if (titleRaw.length < 3) redirect("/app/community?feed=title-required");
+    const { data: assignment, error: assignmentError } = await supabase
+      .from("org_memberships")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("org_id", orgId)
+      .eq("status", "active")
+      .in("role", ["national_admin", "union_admin", "zone_admin", "campus_admin", "church_admin"])
+      .maybeSingle();
+    if (assignmentError || !assignment) redirect("/app/community?feed=not-authorized");
+    const { error } = await supabase.from("community_posts").insert({
+      author_user_id: user.id,
+      author_org_id: orgId,
+      audience_org_id: orgId,
+      post_type: "announcement",
+      title: titleRaw,
+      content,
+      status: "published",
+    });
+    if (error) redirect("/app/community?feed=not-published");
+  } else {
+    const { data: membership, error: membershipError } = await supabase
+      .from("org_memberships")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+    if (membershipError || !membership) redirect("/app/community?feed=membership-required");
+    const { error } = await supabase.from("community_posts").insert({
+      author_user_id: user.id,
+      author_org_id: null,
+      audience_org_id: null,
+      post_type: "member_post",
+      title: null,
+      content,
+      status: "published",
+    });
+    if (error) redirect("/app/community?feed=not-published");
+  }
+  revalidatePath("/app/community");
+  redirect("/app/community?feed=published");
+}
+
+export async function reportCommunityPost(formData: FormData) {
+  const postId = String(formData.get("post_id") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+  const details = String(formData.get("details") ?? "").trim().slice(0, 1000);
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const reasons = ["spam", "harassment", "hate_or_abuse", "misinformation", "inappropriate", "other"];
+  if (!uuid.test(postId) || !reasons.includes(reason)) redirect("/app/community?report=invalid");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { error } = await supabase.from("community_post_reports").insert({
+    post_id: postId,
+    reporter_user_id: user.id,
+    reason,
+    details: details || null,
+  });
+  if (error) redirect("/app/community?report=not-submitted");
+  revalidatePath("/app/community");
+  redirect("/app/community?report=submitted");
+}
