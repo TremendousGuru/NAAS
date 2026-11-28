@@ -140,7 +140,7 @@ export default async function OrganizationManagement({
         >← Return to administration</Link>
         <nav className="admin-portal-switcher" aria-label="Organization administration navigation">
           <Link href={"/admin/organizations" + (requestedScope ? "?scope=" + requestedScope : "") + (requestedOrg ? (requestedScope ? "&" : "?") + "org=" + requestedOrg : "")}>Organizations</Link>
-          <Link href={"/admin/onboarding" + (requestedScope ? "?scope=" + requestedScope : "")}>Administrator appointments</Link>
+          <Link href={"/admin/onboarding" + (requestedScope ? "?scope=" + requestedScope : "")}>Administrator appointments</Link>{assignments.length>0&&<Link href="/admin/structure">National structure</Link>}
           <Link href={"/admin/leadership" + (requestedScope ? "?scope=" + requestedScope : "") + (requestedOrg ? (requestedScope ? "&" : "?") + "org=" + requestedOrg : "")}>Leadership & executives</Link>
         </nav>
 

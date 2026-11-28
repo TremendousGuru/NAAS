@@ -2,6 +2,7 @@ import Link from "next/link";
 import PortalSideNav from "../PortalSideNav";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { markUserNotificationRead } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,14 +21,15 @@ function readable(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export default async function NotificationsPage() {
+export default async function NotificationsPage({searchParams}:{searchParams:Promise<{result?:string}>}) {
+  const params=await searchParams;
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
   // Combine the two existing, user-scoped event sources. This is an in-app
   // activity inbox; it does not claim email/push delivery or read receipts.
-  const [leadershipResult, membershipResult] = await Promise.all([
+  const [leadershipResult, membershipResult, appResult] = await Promise.all([
     supabase.from("leadership_notification_events")
       .select("id,org_id,handover_request_id,event_type,payload,created_at,delivered_at")
       .eq("recipient_user_id", user.id)
@@ -36,8 +38,10 @@ export default async function NotificationsPage() {
       .select("id,org_id,event_type,details,created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }).limit(100),
+    supabase.from("user_notifications").select("id,notification_type,title,body,href,event_id,read_at,created_at")
+      .eq("user_id",user.id).order("created_at",{ascending:false}).limit(100),
   ]);
-  const error = leadershipResult.error || membershipResult.error;
+  const error = leadershipResult.error || membershipResult.error || appResult.error;
   const events = [
     ...(leadershipResult.data ?? []).map(item => ({
       id: item.id, org_id: item.org_id, event_type: item.event_type,
@@ -51,20 +55,28 @@ export default async function NotificationsPage() {
       source: "Membership", reference_id: null, delivered_at: null,
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 150);
+  const appNotifications=appResult.data??[];
   return (
     <main className="member-app portal-app-frame"><PortalSideNav/><div className="portal-main-column"><header className="portal-main-topbar"><span>NAASCONNECT NIGERIA <i>/</i> MEMBER SPACE</span><Link href="/app">Overview</Link></header><div className="portal-dashboard directory-shell">
       <header className="directory-header">
         <Link href="/app" className="directory-back">← Member workspace</Link>
         <span className="directory-kicker">NAASCONNECT NIGERIA · UPDATES</span>
         <h1>Notifications</h1>
-        <p>Membership decisions and leadership workflow updates addressed to your account, combined in one in-app activity inbox.</p>
+        <p>Event announcements, event registrations, membership decisions and leadership workflow updates for your account.</p>
       </header>
+      {params.result&&<p className="portal-inline-success" role="status">{params.result==="read"?"Notification marked as read.":"Notification update: "+params.result}</p>}
       {error ? (
         <div className="directory-empty" role="alert"><h3>Notifications could not be loaded</h3><p>Please refresh. If this continues, contact support.</p></div>
-      ) : events.length === 0 ? (
+      ) : events.length === 0 && appNotifications.length===0 ? (
         <div className="directory-empty"><h3>You are all caught up</h3><p>No membership or leadership updates have been recorded for your account.</p></div>
       ) : (
         <div className="directory-card-grid">
+          {appNotifications.map(notification=><article className="directory-card" key={notification.id}>
+            <div className="directory-card-top"><span className="directory-org-mark">NAAS</span><span className="directory-active-label">{notification.read_at?"Read":"New event update"}</span></div>
+            <h3>{notification.title}</h3><p className="directory-description">{notification.body}</p>
+            <div className="directory-meta"><span>{new Date(notification.created_at).toLocaleString("en-NG",{dateStyle:"medium",timeStyle:"short"})}</span>{notification.event_id&&<span>Event update</span>}</div>
+            <div className="directory-meta"><Link href={notification.href}>Open update →</Link>{!notification.read_at&&<form action={markUserNotificationRead}><input type="hidden" name="notification_id" value={notification.id}/><button type="submit">Mark as read</button></form>}</div>
+          </article>)}
           {events.map((event) => (
             <article className="directory-card" key={event.id}>
               <div className="directory-card-top"><span className="directory-org-mark">NAAS</span><span className="directory-active-label">{event.source}</span></div>
@@ -75,7 +87,7 @@ export default async function NotificationsPage() {
           ))}
         </div>
       )}
-      <footer className="directory-footer">This inbox combines existing membership and leadership event records. Read receipts, push/email delivery, preferences and event reminders require additional approved backend services.</footer>
+      <footer className="directory-footer">This is your in-app inbox. Email and push delivery, notification preferences and scheduled event reminders are separate capabilities.</footer>
     </div></div></main>
   );
 }

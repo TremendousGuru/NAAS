@@ -191,7 +191,10 @@ export async function publishCommunityPost(formData: FormData) {
   const content = String(formData.get("content") ?? "").trim().slice(0, 5000);
   const titleRaw = String(formData.get("title") ?? "").trim().slice(0, 160);
   const orgId = String(formData.get("author_org_id") ?? "").trim();
+  const mediaFile = formData.get("media");
   if (content.length < 1) redirect("/app/community?feed=empty");
+  if (mediaFile instanceof File && mediaFile.size > 3 * 1024 * 1024) redirect("/app/community?feed=media-too-large");
+  if (mediaFile instanceof File && mediaFile.size > 0 && !["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm"].includes(mediaFile.type)) redirect("/app/community?feed=media-invalid");
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
@@ -199,43 +202,36 @@ export async function publishCommunityPost(formData: FormData) {
   if (orgId) {
     if (titleRaw.length < 3) redirect("/app/community?feed=title-required");
     const { data: assignment, error: assignmentError } = await supabase
-      .from("org_memberships")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("org_id", orgId)
+      .from("org_memberships").select("id").eq("user_id", user.id).eq("org_id", orgId)
       .eq("status", "active")
-      .in("role", ["national_admin", "union_admin", "zone_admin", "campus_admin", "church_admin"])
+      .in("role", ["national_admin","union_admin","zone_admin","campus_admin","church_admin"])
       .maybeSingle();
     if (assignmentError || !assignment) redirect("/app/community?feed=not-authorized");
-    const { error } = await supabase.from("community_posts").insert({
-      author_user_id: user.id,
-      author_org_id: orgId,
-      audience_org_id: orgId,
-      post_type: "announcement",
-      title: titleRaw,
-      content,
-      status: "published",
-    });
-    if (error) redirect("/app/community?feed=not-published");
   } else {
-    const { data: membership, error: membershipError } = await supabase
-      .from("org_memberships")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
+    const { data: membership, error: membershipError } = await supabase.from("org_memberships")
+      .select("id").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
     if (membershipError || !membership) redirect("/app/community?feed=membership-required");
-    const { error } = await supabase.from("community_posts").insert({
-      author_user_id: user.id,
-      author_org_id: null,
-      audience_org_id: null,
-      post_type: "member_post",
-      title: null,
-      content,
-      status: "published",
-    });
-    if (error) redirect("/app/community?feed=not-published");
+  }
+
+  let mediaPath: string | null = null;
+  if (mediaFile instanceof File && mediaFile.size > 0) {
+    const extension = ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm" } as Record<string,string>)[mediaFile.type];
+    mediaPath = user.id + "/posts/" + crypto.randomUUID() + "." + extension;
+    const { error: uploadError } = await supabase.storage.from("community-media").upload(mediaPath, mediaFile, { contentType: mediaFile.type, upsert: false });
+    if (uploadError) redirect("/app/community?feed=media-upload-failed");
+  }
+
+  const row: any = orgId ? {
+    author_user_id:user.id, author_org_id:orgId, audience_org_id:orgId,
+    post_type:"announcement", title:titleRaw, content, media_path:mediaPath, status:"published",
+  } : {
+    author_user_id:user.id, author_org_id:null, audience_org_id:null,
+    post_type:"member_post", title:null, content, media_path:mediaPath, status:"published",
+  };
+  const { error } = await supabase.from("community_posts").insert(row);
+  if (error) {
+    if (mediaPath) await supabase.storage.from("community-media").remove([mediaPath]);
+    redirect("/app/community?feed=not-published");
   }
   revalidatePath("/app/community");
   redirect("/app/community?feed=published");
@@ -340,4 +336,105 @@ export async function hideGlobalCommunityPost(formData: FormData) {
   if(error||!data?.ok) redirect("/app/community?global_moderation=failed");
   revalidatePath("/app/community");
   redirect("/app/community?global_moderation=hidden");
+}
+
+
+export async function createCommunityEvent(formData: FormData) {
+  const title=String(formData.get("title")??"").trim().slice(0,180);
+  const description=String(formData.get("description")??"").trim().slice(0,8000);
+  const mode=String(formData.get("event_mode")??"in_person");
+  const startsRaw=String(formData.get("starts_at")??"");
+  const endsRaw=String(formData.get("ends_at")??"");
+  const venue=String(formData.get("venue")??"").trim().slice(0,240);
+  const meetingUrlRaw=String(formData.get("meeting_url")??"").trim();
+  const deadlineRaw=String(formData.get("registration_deadline")??"");
+  const capacityRaw=String(formData.get("capacity")??"").trim();
+  const organizerOrgId=String(formData.get("organizer_org_id")??"").trim();
+  const requiresRegistration=formData.get("requires_registration")==="on";
+  const cover=formData.get("cover");
+  const startsAt=new Date(startsRaw.length===16?startsRaw+":00+01:00":startsRaw), endsAt=new Date(endsRaw.length===16?endsRaw+":00+01:00":endsRaw);
+  const deadlineDate=deadlineRaw?new Date(deadlineRaw.length===16?deadlineRaw+":00+01:00":deadlineRaw):null;
+  if(title.length<4||description.length<10||!["in_person","online","hybrid"].includes(mode)||!startsRaw||!endsRaw||!Number.isFinite(startsAt.getTime())||!Number.isFinite(endsAt.getTime())||startsAt<=new Date()||endsAt<=startsAt||(deadlineRaw&&(!deadlineDate||!Number.isFinite(deadlineDate.getTime())||deadlineDate>startsAt))) redirect("/app/events?result=invalid");
+  if(mode!=="online"&&!venue) redirect("/app/events?result=venue-required");
+  let meetingUrl:string|null=null;
+  if(mode!=="in_person") { try { const u=new URL(meetingUrlRaw); if(u.protocol!=="https:") throw new Error(); meetingUrl=u.toString(); } catch { redirect("/app/events?result=meeting-link-required"); } }
+  const capacity=capacityRaw?Number(capacityRaw):null;
+  if(capacity!==null&&(!Number.isInteger(capacity)||capacity<1||capacity>100000)) redirect("/app/events?result=invalid");
+  if(cover instanceof File&&cover.size>0&&(cover.size>10*1024*1024||!["image/jpeg","image/png","image/webp"].includes(cover.type))) redirect("/app/events?result=cover-invalid");
+  const supabase=await createClient();
+  const {data:{user},error:authError}=await supabase.auth.getUser();
+  if(authError||!user) redirect("/login");
+  const {data:memberships,error:membershipError}=await supabase.from("org_memberships").select("id,org_id,role").eq("user_id",user.id).eq("status","active");
+  if(membershipError||!memberships?.length) redirect("/app/events?result=membership-required");
+  if(organizerOrgId&&!memberships.some(m=>m.org_id===organizerOrgId&&["national_admin","union_admin","zone_admin","campus_admin","church_admin"].includes(m.role))) redirect("/app/events?result=not-authorized");
+  let coverPath:string|null=null;
+  if(cover instanceof File&&cover.size>0) {
+    const ext=({"image/jpeg":"jpg","image/png":"png","image/webp":"webp"} as Record<string,string>)[cover.type];
+    coverPath=user.id+"/events/"+crypto.randomUUID()+"."+ext;
+    const {error}=await supabase.storage.from("community-media").upload(coverPath,cover,{contentType:cover.type,upsert:false});
+    if(error) redirect("/app/events?result=cover-upload-failed");
+  }
+  const {data:createdEvent,error}=await supabase.from("community_events").insert({
+    created_by:user.id,organizer_org_id:organizerOrgId||null,audience_org_id:organizerOrgId||null,
+    title,description,event_mode:mode,starts_at:startsAt.toISOString(),ends_at:endsAt.toISOString(),
+    timezone:"Africa/Lagos",venue:venue||null,meeting_url:meetingUrl,
+    registration_deadline:deadlineDate?deadlineDate.toISOString():null,
+    capacity,requires_registration:requiresRegistration,cover_media_path:coverPath,status:"pending",
+  }).select("id").single();
+  if(error||!createdEvent) {
+    if(coverPath) await supabase.storage.from("community-media").remove([coverPath]);
+    redirect("/app/events?result=not-created");
+  }
+  // National administrators are the final authority and may publish their own
+  // National-organized events immediately; lower-level organization events
+  // remain pending for the parent administrator's review.
+  if(organizerOrgId&&memberships.some(m=>m.org_id===organizerOrgId&&m.role==="national_admin")) {
+    const {error:publishError}=await supabase.from("community_events").update({
+      status:"published",reviewed_by:user.id,reviewed_at:new Date().toISOString(),published_at:new Date().toISOString(),
+    }).eq("id",createdEvent.id);
+    if(publishError) redirect("/app/events?result=not-created");
+  }
+  revalidatePath("/app/events");
+  redirect("/app/events?result=submitted");
+}
+
+export async function reviewCommunityEvent(formData:FormData) {
+  const eventId=String(formData.get("event_id")??"").trim();
+  const decision=String(formData.get("decision")??"").trim();
+  const note=String(formData.get("review_note")??"").trim().slice(0,1000);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventId)||!["published","rejected","cancelled"].includes(decision)||(decision!=="published"&&note.length<10)) redirect("/app/events?result=review-invalid");
+  const supabase=await createClient();
+  const {data:{user},error:authError}=await supabase.auth.getUser();
+  if(authError||!user) redirect("/login");
+  const {data,error}=await supabase.from("community_events").update({
+    status:decision,reviewed_by:user.id,reviewed_at:new Date().toISOString(),review_note:note||null,
+    published_at:decision==="published"?new Date().toISOString():null,
+  }).eq("id",eventId).eq("status","pending").select("id").maybeSingle();
+  if(error||!data) redirect("/app/events?result=review-failed");
+  revalidatePath("/app/events"); revalidatePath("/app/notifications");
+  redirect("/app/events?result=reviewed");
+}
+
+export async function registerForCommunityEvent(formData:FormData) {
+  const eventId=String(formData.get("event_id")??"").trim();
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventId)) redirect("/app/events?result=invalid");
+  const supabase=await createClient();
+  const {data:{user},error:authError}=await supabase.auth.getUser();
+  if(authError||!user) redirect("/login");
+  const {error}=await supabase.rpc("register_for_event",{p_event_id:eventId});
+  if(error) redirect("/app/events?result=registration-failed");
+  revalidatePath("/app/events"); revalidatePath("/app/notifications");
+  redirect("/app/events?result=registered");
+}
+
+export async function markUserNotificationRead(formData:FormData) {
+  const notificationId=String(formData.get("notification_id")??"").trim();
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationId)) redirect("/app/notifications?result=invalid");
+  const supabase=await createClient();
+  const {data:{user},error:authError}=await supabase.auth.getUser();
+  if(authError||!user) redirect("/login");
+  const {error}=await supabase.from("user_notifications").update({read_at:new Date().toISOString()}).eq("id",notificationId).eq("user_id",user.id);
+  if(error) redirect("/app/notifications?result=failed");
+  revalidatePath("/app/notifications");
+  redirect("/app/notifications?result=read");
 }

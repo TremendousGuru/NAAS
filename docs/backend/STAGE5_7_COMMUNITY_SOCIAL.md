@@ -77,3 +77,12 @@ The function is deployed and the National-only queue/actions are now connected t
 ## Abuse-control follow-up — 28 November 2026
 
 Report submission now applies a fail-closed per-user throttle using the reporter's own RLS-visible report history: no more than five reports in a rolling hour or twenty in a rolling day. The existing unique constraint continues to prevent duplicate reports by the same user against the same post. This is a best-effort application-level throttle; concurrent requests can still race because a transactional database rate limiter would require a new schema/function change, which remains held behind the migration recovery gate.
+
+## Batch 2C completion integration — 28 November 2026
+
+- The existing private community-media bucket is reused. Member personal posts and authorized organization announcements now accept one optional image/video attachment (JPEG, PNG, WebP, GIF, MP4 or WebM; 3 MB application limit). Files are stored under the authenticated user's folder and feed rendering uses short-lived signed URLs.
+- Organization announcement read access now follows the organizational tree: active members in the selected organization or its descendant organizations can see the announcement. The existing administrator scope remains enforced by private.can_administer_org.
+- The National personal-post moderation Edge Function and organization-scoped moderation queue remain separate. Ordinary member posts publish directly; reporting does not impose blanket pre-publication National approval.
+- The application upload limit is intentionally 3 MB and Next.js Server Actions are configured for a 4 MB request body. The private bucket's higher 10 MB limit is not treated as the application upload limit.
+- Controlled-account tests, abuse-throttle concurrency hardening and broader community engagement features remain future QA/extension items.
+
