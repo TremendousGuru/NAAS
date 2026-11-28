@@ -1,67 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { deleteCommunityStatus } from "../actions";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-type StatusRow = {
-  id: string;
-  content: string;
-  media_url: string | null;
-  created_at: string;
-  expires_at: string;
-  author_user_id: string;
-  author_org_id: string | null;
-};
-
-export default async function CommunityPage() {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) redirect("/login");
-
-  const { data, error } = await supabase
-    .from("community_statuses")
-    .select("id,content,media_url,created_at,expires_at,author_user_id,author_org_id")
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  const statuses = (data ?? []) as StatusRow[];
-  return (
-    <main className="directory-shell">
-      <header className="directory-header">
-        <Link href="/app" className="directory-back">← Member workspace</Link>
-        <span className="directory-kicker">NAASCONNECT NIGERIA · COMMUNITY</span>
-        <h1>Global Status</h1>
-        <p>Short-lived updates shared across the authenticated NAASCONNECT community. Statuses expire automatically according to their recorded expiry time.</p>
-      </header>
-      <section className="directory-search-panel">
-        <div className="directory-results-head">
-          <div><span className="directory-kicker">YOUR COMMUNITY</span><h2>Recent updates <span>{statuses.length}</span></h2></div>
-          <Link className="directory-card-link" href="/app#statuses">Create a status →</Link>
-        </div>
-      </section>
-      {error ? (
-        <div className="directory-empty" role="alert"><h3>Statuses are temporarily unavailable</h3><p>Refresh the page. If this continues, contact support.</p></div>
-      ) : statuses.length === 0 ? (
-        <div className="directory-empty"><h3>No active statuses yet</h3><p>When members and authorized organization representatives share updates, they will appear here.</p></div>
-      ) : (
-        <div className="directory-card-grid">
-          {statuses.map((status) => (
-            <article className="directory-card" key={status.id}>
-              <div className="directory-card-top"><span className="directory-org-mark">NAAS</span><span className="directory-active-label"><i/> Active</span></div>
-              <p className="directory-description" style={{ whiteSpace: "pre-wrap" }}>{status.content}</p>
-              {status.media_url && <a className="directory-card-link" href={status.media_url} target="_blank" rel="noreferrer">Open attached media ↗</a>}
-              <div className="directory-meta"><span>{new Date(status.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</span><span>Expires {new Date(status.expires_at).toLocaleString("en-NG", { dateStyle: "short", timeStyle: "short" })}</span></div>
-              {status.author_user_id === user.id && <><small className="directory-description">Posted by you</small><form action={deleteCommunityStatus}><input type="hidden" name="status_id" value={status.id}/><button type="submit">Delete status</button></form></>}
-              {status.author_org_id && <small className="directory-description">Organization update</small>}
-            </article>
-          ))}
-        </div>
-      )}
-      <footer className="directory-footer">Only authenticated NAASCONNECT users can access global statuses. Expired statuses are excluded from this view.</footer>
-    </main>
-  );
+import { publishCommunityPost, reportCommunityPost, reviewCommunityReport } from "./actions";
+export const dynamic="force-dynamic"; export const revalidate=0;
+export default async function CommunityPage({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}) {
+ const params=await searchParams; const supabase=await createClient(); const {data:{user},error:authError}=await supabase.auth.getUser(); if(authError||!user) redirect("/login");
+ const [{data:posts,error},{data:adminRows},{data:reports}]=await Promise.all([
+  supabase.from("community_posts").select("id,author_user_id,author_org_id,audience_org_id,post_type,title,content,media_path,published_at,org_units(name)").eq("status","published").order("published_at",{ascending:false}).limit(50),
+  supabase.from("org_memberships").select("org_id,role,org_units!inner(id,name,status)").eq("user_id",user.id).eq("status","active").in("role",["national_admin","union_admin","zone_admin","campus_admin","church_admin"]),
+  supabase.from("community_post_reports").select("id,post_id,reason,details,status,created_at,community_posts!inner(title,content,author_org_id)").in("status",["open","reviewing"]).order("created_at",{ascending:true}).limit(50)
+ ]);
+ const adminOrgs=(adminRows??[]).filter((r:any)=>r.org_units?.status==="active"); const modReports=(reports??[]).filter((r:any)=>adminOrgs.some((o:any)=>o.org_id===r.community_posts?.author_org_id)); const feed=(posts??[]) as any[];
+ const signed=await Promise.all(feed.map(p=>p.media_path?supabase.storage.from("community-media").createSignedUrl(p.media_path,300):Promise.resolve({data:null} as any))); const urls=new Map(feed.map((p,i)=>[p.id,signed[i]?.data?.signedUrl??null]));
+ return <main className="directory-shell community-shell"><header className="directory-header"><Link href="/app" className="directory-back">← Member workspace</Link><span className="directory-kicker">NAASCONNECT NIGERIA · COMMUNITY</span><h1>Community</h1><p>Share updates with fellow members and stay informed through official organization announcements.</p><div className="community-switch"><Link href="/app/community">Community feed</Link><Link href="/app#statuses">Global Status · 24 hours</Link></div></header>
+ {(params.post||params.report||params.moderation)&&<p className="community-feedback" role="status">{params.post==="published"?"Your post has been published.":params.post?"The post could not be published. Check permissions and attachment.":params.report==="submitted"?"Your report has been submitted.":params.report?"The report could not be submitted.":params.moderation==="saved"?"Moderation decision saved.":"Moderation action failed."}</p>}
+ <section className="community-composer"><span className="directory-kicker">START A CONVERSATION</span><h2>Share with the community</h2><p>Posts are persistent. Global Status remains a separate 24-hour feature.</p><form action={publishCommunityPost} className="community-form"><label>Post type<select name="post_type"><option value="member_post">Community post</option>{adminOrgs.length>0&&<option value="announcement">Official announcement</option>}</select></label>{adminOrgs.length>0&&<label>Organization<select name="author_org_id"><option value="">Choose organization</option>{adminOrgs.map((o:any)=><option key={o.org_id} value={o.org_id}>{o.org_units.name}</option>)}</select></label>}<label>Announcement title<input name="title" maxLength={160} placeholder="Required for announcements"/></label><label>Message<textarea name="content" required maxLength={5000} rows={5}/></label><label>Image or short video<input name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"/></label><small>Maximum attachment size: 10 MB. Media is private.</small><button className="community-submit" type="submit">Publish post</button></form></section>
+ <section className="community-feed"><div className="community-section-heading"><div><span className="directory-kicker">LATEST UPDATES</span><h2>Community feed</h2></div><span>{feed.length} posts</span></div>{error?<div className="directory-empty"><h3>Community feed unavailable</h3><p>The Batch 2C database migration may not yet be applied.</p></div>:feed.length===0?<div className="directory-empty"><h3>No community posts yet</h3><p>Be the first to share an update.</p></div>:feed.map(p=><article className="community-post" key={p.id}><span className={p.post_type==="announcement"?"community-badge official":"community-badge"}>{p.post_type==="announcement"?"Official announcement":"Community post"}</span><h3>{p.title??"Community update"}</h3><small>{p.org_units?.name??"NAASCONNECT member"} · {new Date(p.published_at).toLocaleString("en-NG",{dateStyle:"medium",timeStyle:"short"})}</small><p className="community-post-copy">{p.content}</p>{urls.get(p.id)&&<a href={urls.get(p.id)!} target="_blank" rel="noreferrer" className="community-media-link">View attachment ↗</a>}<details className="community-report"><summary>Report this post</summary><form action={reportCommunityPost}><input type="hidden" name="post_id" value={p.id}/><label>Reason<select name="reason"><option value="spam">Spam</option><option value="harassment">Harassment</option><option value="hate_or_abuse">Hate or abuse</option><option value="misinformation">Misinformation</option><option value="inappropriate">Inappropriate</option><option value="other">Other</option></select></label><label>Details<textarea name="details" maxLength={1000}/></label><button type="submit">Submit report</button></form></details></article>)}</section>
+ {modReports.length>0&&<section className="community-moderation"><span className="directory-kicker">AUTHORIZED MODERATION</span><h2>Moderation queue</h2>{modReports.map((r:any)=><article className="community-post" key={r.id}><b>{r.reason.replaceAll("_"," ")}</b><p>{r.community_posts?.title??r.community_posts?.content}</p><form action={reviewCommunityReport}><input type="hidden" name="report_id" value={r.id}/><label>Decision<select name="status"><option value="reviewing">Under review</option><option value="resolved">Resolve</option><option value="dismissed">Dismiss</option></select></label><label>Review note<textarea name="review_note" minLength={10} required/></label><button type="submit">Save decision</button></form></article>)}</section>}
+ <footer className="directory-footer">Persistent community posts are separate from temporary Global Status updates. Access follows active membership and organization permissions.</footer></main>;
 }
