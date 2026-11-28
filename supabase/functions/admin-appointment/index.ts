@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
   const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !anon || !secret || !Deno.env.get("APP_ORIGIN")) {
+  if (!url || !anon || !secret) {
     return json({ error: "Server configuration incomplete" }, 500);
   }
 
@@ -90,10 +90,13 @@ Deno.serve(async (req) => {
       return json({ error: "Only a currently active administrator at the approving organization may send this invitation" }, 403);
     }
 
+    const configuredAppOrigin = Deno.env.get("APP_ORIGIN");
+    if (!configuredAppOrigin) return json({ error: "APP_ORIGIN is not configured" }, 500);
+
     const redirectTo = new URL(
       "/auth/callback?next=" +
         encodeURIComponent("/admin/invitation?request_id=" + request.id),
-      appOrigin,
+      configuredAppOrigin,
     ).toString();
 
     const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
