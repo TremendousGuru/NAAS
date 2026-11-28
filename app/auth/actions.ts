@@ -9,43 +9,51 @@ const safeText = (value: FormDataEntryValue | null, max = 160) =>
 export async function signIn(formData: FormData) {
   const email = safeText(formData.get("email"), 254).toLowerCase();
   const password = String(formData.get("password") ?? "");
-  if (!email || !password) redirect("/login?error=Enter%20your%20email%20and%20password");
+  const portal = safeText(formData.get("portal"), 24);
+  const destinations: Record<string, { roles: string[]; orgTypes: string[]; scope: string }> = {
+    national: { roles: ["national_admin"], orgTypes: ["national"], scope: "national" },
+    union: { roles: ["union_admin"], orgTypes: ["union"], scope: "union" },
+    zone: { roles: ["zone_admin"], orgTypes: ["zone"], scope: "zone" },
+    institution: { roles: ["campus_admin", "church_admin"], orgTypes: ["campus", "church"], scope: "institution" },
+    member: { roles: ["member", "church_member"], orgTypes: ["campus", "church"], scope: "member" },
+  };
+  const selected = destinations[portal];
+  const fail = (message: string): never => redirect("/login?portal=" + (selected ? portal : "member") + "&error=" + encodeURIComponent(message));
+  if (!email || !password) fail("Enter your email address and password.");
+  if (!selected) fail("Choose the correct portal before signing in.");
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) redirect("/login?error=We%20could%20not%20sign%20you%20in.%20Check%20your%20details%20and%20confirm%20your%20email.");
-  const portal = safeText(formData.get("portal"), 24);
-  const destinations: Record<string, { roles: string[]; scope: string }> = {
-    national: { roles: ["national_admin"], scope: "national" },
-    union: { roles: ["union_admin"], scope: "union" },
-    zone: { roles: ["zone_admin"], scope: "zone" },
-    institution: { roles: ["campus_admin", "church_admin"], scope: "institution" },
-  };
-  if (portal === "member" || !portal) redirect("/welcome?next=%2Fapp");
-  const destination = destinations[portal];
-  if (!destination) redirect("/welcome?next=%2Fapp");
-  const { data: { user } } = await supabase.auth.getUser();
+  const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+  if (authError) fail("These credentials are not valid for this portal. Check your details and use the correct entry point.");
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    await supabase.auth.signOut();
+    fail("We could not verify this account. Please sign in again.");
+  }
+
   const { data: assignments, error: assignmentError } = await supabase
     .from("org_memberships")
     .select("id,org_id,role,org_units(name,org_type)")
-    .eq("user_id", user?.id ?? "")
+    .eq("user_id", user.id)
     .eq("status", "active")
-    .in("role", destination.roles);
-  if (assignmentError || !assignments?.length) {
-    redirect("/login?portal=" + portal + "&error=This%20account%20does%20not%20have%20an%20active%20administrator%20assignment%20for%20that%20portal.%20An%20authorized%20leader%20must%20appoint%20and%20activate%20your%20account%20first.");
-  }
-  const validAssignments = assignments.filter((item) => {
+    .in("role", selected.roles);
+
+  const validAssignments = (assignments ?? []).filter((item) => {
     const org = Array.isArray(item.org_units) ? item.org_units[0] : item.org_units;
-    return portal === "national" ? org?.org_type === "national"
-      : portal === "union" ? org?.org_type === "union"
-      : portal === "zone" ? org?.org_type === "zone"
-      : ["campus", "church"].includes(org?.org_type ?? "");
+    return selected.orgTypes.includes(org?.org_type ?? "");
   });
-  if (!validAssignments.length) redirect("/login?portal=" + portal + "&error=Your%20active%20assignment%20does%20not%20match%20this%20portal.");
-  if (validAssignments.length === 1) {
-    redirect("/welcome?next=" + encodeURIComponent("/admin?scope=" + destination.scope + "&org=" + validAssignments[0].org_id));
+
+  if (assignmentError || validAssignments.length === 0) {
+    await supabase.auth.signOut();
+    fail("This account does not have an active assignment for the selected portal. Other NAASCONNECT accounts or roles cannot be used here.");
   }
-  redirect("/admin/select?scope=" + destination.scope);
+
+  if (portal === "member") redirect("/welcome?next=%2Fapp");
+  if (validAssignments.length === 1) {
+    redirect("/welcome?next=" + encodeURIComponent("/admin?scope=" + selected.scope + "&org=" + validAssignments[0].org_id));
+  }
+  redirect("/admin/select?scope=" + selected.scope);
 }
 
 export async function signUp(formData: FormData) {
