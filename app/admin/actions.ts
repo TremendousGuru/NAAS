@@ -210,3 +210,18 @@ export async function inviteAdminAppointee(formData: FormData) {
   revalidatePath("/admin/onboarding");
   redirect("/admin/onboarding?result=invited");
 }
+
+
+export async function acceptAdminInvitation(formData: FormData) {
+  const requestId = String(formData.get("request_id") ?? "").trim();
+  if (!UUID.test(requestId)) redirect("/login?error=Invalid%20administrator%20invitation");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const { data, error } = await supabase.functions.invoke("admin-appointment", {
+    body: { action: "accept", request_id: requestId },
+  });
+  if (error || !data?.ok) redirect("/admin/invitation?request_id=" + requestId + "&result=failed");
+  revalidatePath("/admin");
+  redirect("/welcome?next=%2Fadmin");
+}
