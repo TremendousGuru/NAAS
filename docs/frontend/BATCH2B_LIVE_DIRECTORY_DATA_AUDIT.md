@@ -1,6 +1,6 @@
 # Batch 2B — Live Directory Data Audit
 
-**Checked:** 28 November 2026  
+**Checked:** 28 November 2026 (post-approval update)  
 **Repository:** `TremendousGuru/NAAS`  
 **Branch:** `feature/naasconnect-mobile-multipage-intro`  
 **Supabase project:** `csytneubatlaakpmnsfk`  
@@ -14,13 +14,13 @@ Read-only query of `public.org_units` returned 24 records:
 | Organization type | Active | Pending | Total |
 |---|---:|---:|---:|
 | National | 1 | 0 | 1 |
-| Union | 0 | 3 | 3 |
-| Zone | 0 | 20 | 20 |
+| Union | 3 | 0 | 3 |
+| Zone | 20 | 0 | 20 |
 | Campus / ASF | 0 | 0 | 0 |
 | Church | 0 | 0 | 0 |
 | **Total** | **1** | **23** | **24** |
 
-The only active record is **Nigeria Association of Adventist Students**. All three union records and all twenty zone records are pending. There are currently no campus/ASF or church records in `org_units`.
+The active records are **Nigeria Association of Adventist Students**, all three approved Union organizations, and all twenty approved Zone organizations. There are currently no campus/ASF or church records in `org_units`.
 
 The directory UI intentionally queries only records with `status = 'active'` and only `org_type = 'campus'` or `org_type = 'church'`. Therefore both directory tabs correctly show an empty-state message today. They must not display pending organizations or invented sample churches/fellowships.
 
@@ -32,7 +32,7 @@ The live database contains these pending union records:
 - Northern Nigeria Union Conference (`nnuc`)
 - Western Nigeria Union Conference (`wnuc`)
 
-The twenty pending zone records are:
+The twenty activated zone records are:
 
 - Abia Zone
 - Akwa Ibom Zone
@@ -55,7 +55,7 @@ The twenty pending zone records are:
 - Oyo Zone
 - Rivers & Bayelsa Zone
 
-These records preserve their current parent relationships and state/conference metadata in Supabase. Their pending status must not be changed without the relevant organizational validation and approval.
+These records preserve their current parent relationships and state/conference metadata in Supabase. Their activation was explicitly approved by the project owner on 28 November 2026. Their parent relationships were preserved and verified before activation.
 
 ## 3. Previously supplied source-list check
 
@@ -100,6 +100,13 @@ The route requires a signed-in member. The current `org_units` SELECT RLS policy
 
 - GitHub remains the source of truth for application structure.
 - Supabase remains the source of truth for live organization records and their current status.
-- No data was inserted, updated, activated or deleted during this audit.
+- No data was inserted or deleted during this post-approval update. Exactly 3 Union and 20 Zone organization records were changed from pending to active in one guarded transaction after verifying the National → Union → Zone hierarchy.
 - No migration or schema change was applied.
 - Do not fabricate or infer church/campus records from conference/zone names.
+
+
+## 7. Post-approval activation — 28 November 2026
+
+The project owner explicitly approved activation of the three Union and twenty Zone organizations. A guarded transaction verified exactly three pending Union children under the National root, exactly twenty pending Zone children under those Unions, and zero invalid Zone parent relationships before changing the 23 records to active. Post-transaction verification returned National 1 active, Union 3 active, Zone 20 active.
+
+The 3 Union administrator seats and 20 Zone administrator seats remain reserved. They are vacant appointments, not user accounts. They will become active only when verified nominees complete the existing approval, invitation, email verification and acceptance workflow. The National administrator seat remains active.
