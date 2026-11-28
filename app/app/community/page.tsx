@@ -97,7 +97,7 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
           "membership-required":"An active NAAS membership is required to publish.",
           "not-published":"The post could not be published. Check your access and try again."
         } as Record<string,string>)[params.feed] ?? "Community update: " + params.feed.replaceAll("-"," ")}</p>}
-        {params.report && <p className="portal-inline-success" role="status">{params.report === "submitted" ? "Thank you. Your report has been submitted for review." : "The report could not be submitted. Please try again."}</p>}
+        {params.report && <p className="portal-inline-success" role="status">{params.report === "submitted" ? "Thank you. Your report has been submitted for review." : params.report === "rate-limited" ? "You have reached the report limit (5 per hour or 20 per day). Please wait before submitting another report." : "The report could not be submitted. Please try again."}</p>}
         {params.moderation && <p className="portal-inline-success" role="status">{params.moderation === "updated" ? "The report review has been saved." : "The report could not be updated. Your administrator scope may not include this post."}</p>}
         {params.global_moderation && <p className="portal-inline-success" role="status">{({
           reviewed:"Personal-post report review saved.",
