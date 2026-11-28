@@ -264,3 +264,16 @@
 .portals-grid .portal-card>a{color:var(--portal-accent);font-weight:800}
 .portals-grid .portal-card:hover{background:var(--portal-tint)}
 @media(max-width:720px){.auth-portal-badge{font-size:8px;line-height:1.5}.auth-admin-invite-note{font-size:10px}}
+
+/* Portal-specific administrator workspace identity, matching each portal entry point. */
+.admin-route-main{--admin-accent:#3158b7;--admin-tint:#edf3ff}
+.admin-route-main.admin-theme-national{--admin-accent:#a77b2e;--admin-tint:#f8f1e4}
+.admin-route-main.admin-theme-union{--admin-accent:#16835d;--admin-tint:#e8f5ef}
+.admin-route-main.admin-theme-zone{--admin-accent:#087e91;--admin-tint:#e6f5f7}
+.admin-route-main.admin-theme-institution{--admin-accent:#7252a3;--admin-tint:#f0ebf8}
+.admin-route-main .admin-live-scope{border-color:color-mix(in srgb,var(--admin-accent) 22%,white);background:var(--admin-tint)}
+.admin-route-main .admin-live-scope b,.admin-route-main .admin-page-heading .section-kicker{color:var(--admin-accent)}
+.admin-route-main .admin-scope-chip{border-color:color-mix(in srgb,var(--admin-accent) 28%,white);background:var(--admin-tint);color:var(--admin-accent)}
+.admin-route-main .admin-workspace{border-top:3px solid var(--admin-accent);padding-top:14px}
+.auth-form select{width:100%;height:47px;border:1px solid #e1e7f0;border-radius:9px;padding:0 13px;font-size:12px;outline:none;background:#fbfcfe;color:#1d2b43}
+.auth-form select:focus{border-color:#7c9cda;box-shadow:0 0 0 3px rgba(70,111,190,.1)}
