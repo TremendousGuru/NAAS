@@ -76,7 +76,10 @@ This pass changed GitHub frontend code and documentation only. No Supabase migra
 - National, union, zone and institution portal login rejects wrong-role accounts.
 - Each union/zone administrator sees only their assigned organization and descendants.
 - A user with multiple same-level assignments can select one; switching scope remains constrained to active assignments.
-- Member login remains unchanged.
+- A confirmed member account with a durable profile can enter the member workspace before requesting or receiving an organizational membership.
+- A profile-incomplete member can enter and complete setup; a member with no affiliation sees the membership-request empty state.
+- Pending membership remains pending and does not become an active membership through login.
+- National, Union, Zone and Institution portal checks remain assignment-based and reject accounts without the matching active administrator role.
 - Appointment, review, invitation and acceptance flows pass end-to-end with verified test accounts.
 - Mobile and desktop navigation and all five portal entry points pass Playwright checks.
 
@@ -89,7 +92,8 @@ The shared sign-in action authenticated credentials before validating portal ass
 - Every portal now has a portal-specific login experience and visual identity: member (white/light), national (navy/gold), union (green), zone (teal), institution/campus/church (purple).
 - Administrative portals no longer expose public self-registration. Administrator accounts are invitation/appointment-only; an authorized appointing authority must create the assignment and invite the nominee.
 - Sign-in starts by clearing any previous session, then authenticates the submitted credentials and verifies an active `org_memberships` assignment for the selected portal and matching organization type.
-- The member portal accepts only active `member` or `church_member` memberships in campus/church organizations.
+- The member portal accepts a confirmed Supabase Auth identity when its durable `profiles` row exists. It does not require an approved campus/church membership merely to enter the member workspace; membership requests remain pending until an authorized organization approves them.
+- National, Union, Zone and Institution portals continue to require their corresponding active administrator membership assignment and matching organization type.
 - National, Union, Zone and Institution portals accept only their corresponding active administrator roles and matching organization types.
 - A mismatch signs out the session and returns a portal-specific error. It cannot fall through to the member workspace.
 - Middleware no longer forces an authenticated user away from the portal-selection/login page, so a deliberate portal switch is possible. Protected server routes still perform their own authorization checks.
@@ -100,3 +104,17 @@ The login credential is a Supabase Auth identity; portal authorization is a sepa
 
 ### Operational access / preview limitation
 A National/Union/Zone/Institution administrator cannot self-register or gain access merely by visiting a portal. The portal interface is available at its entry point, but the live workspace requires an active appointment. Do not create a universal test password or bypass RLS to make the dashboards appear accessible. A safe read-only demo/preview identity can be provisioned separately if stakeholder visual inspection is needed.
+
+
+## Member authentication correction — 28 November 2026
+
+### Verified cause
+The live Supabase project has three confirmed Auth identities and three linked profile rows, but zero rows in `public.org_memberships`. The sign-in action previously required an active `member` or `church_member` assignment even for the ordinary member portal. That made a successfully registered member account appear to have invalid portal credentials before it had an opportunity to request an organizational affiliation.
+
+### Corrected contract
+- Member portal access requires a valid Supabase Auth session and the user's durable `profiles` row.
+- An approved organization membership is not a prerequisite for entering the member workspace.
+- Incomplete profiles can enter and complete setup; users with no organization membership see the existing membership empty state and request workflow.
+- Membership approval, directory eligibility, posting permissions and other organization-scoped actions remain governed by their existing database RPC/RLS checks.
+- Administrator portals still require active, matching role assignments and organization types. This correction does not weaken administrator authorization.
+- No database records, memberships, roles, admin seats or credentials are created by this frontend correction.
