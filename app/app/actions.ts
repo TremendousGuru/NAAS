@@ -373,16 +373,25 @@ export async function createCommunityEvent(formData: FormData) {
     const {error}=await supabase.storage.from("community-media").upload(coverPath,cover,{contentType:cover.type,upsert:false});
     if(error) redirect("/app/events?result=cover-upload-failed");
   }
-  const {error}=await supabase.from("community_events").insert({
+  const {data:createdEvent,error}=await supabase.from("community_events").insert({
     created_by:user.id,organizer_org_id:organizerOrgId||null,audience_org_id:organizerOrgId||null,
     title,description,event_mode:mode,starts_at:startsAt.toISOString(),ends_at:endsAt.toISOString(),
     timezone:"Africa/Lagos",venue:venue||null,meeting_url:meetingUrl,
     registration_deadline:deadlineRaw?new Date(deadlineRaw.length===16?deadlineRaw+":00+01:00":deadlineRaw).toISOString():null,
     capacity,requires_registration:requiresRegistration,cover_media_path:coverPath,status:"pending",
-  });
-  if(error) {
+  }).select("id").single();
+  if(error||!createdEvent) {
     if(coverPath) await supabase.storage.from("community-media").remove([coverPath]);
     redirect("/app/events?result=not-created");
+  }
+  // National administrators are the final authority and may publish their own
+  // National-organized events immediately; lower-level organization events
+  // remain pending for the parent administrator's review.
+  if(organizerOrgId&&memberships.some(m=>m.org_id===organizerOrgId&&m.role==="national_admin")) {
+    const {error:publishError}=await supabase.from("community_events").update({
+      status:"published",reviewed_by:user.id,reviewed_at:new Date().toISOString(),published_at:new Date().toISOString(),
+    }).eq("id",createdEvent.id);
+    if(publishError) redirect("/app/events?result=not-created");
   }
   revalidatePath("/app/events");
   redirect("/app/events?result=submitted");
