@@ -178,7 +178,9 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
             </label>
             <label>Announcement title (required only for organization announcements)<input name="title" maxLength={160} minLength={3} placeholder="Organization announcement title"/></label>
             <label htmlFor="community-post-content">Message</label>
-            <textarea id="community-post-content" name="content" maxLength={5000} minLength={1} required placeholder="Share an update, story or announcement with the community."/>\n            <label>Photo or video (optional) <input type="file" name="media" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"/></label>\n            <small>Images and MP4/WebM videos · maximum 10 MB per file</small>
+            <textarea id="community-post-content" name="content" maxLength={5000} minLength={1} required placeholder="Share an update, story or announcement with the community."/>
+            <label>Photo or video (optional) <input type="file" name="media" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"/></label>
+            <small>Images and MP4/WebM videos · maximum 10 MB per file</small>
             <div><small>Published posts are subject to the community guidelines and reporting process.</small><button type="submit">Publish post</button></div>
           </form>
         </section>}
