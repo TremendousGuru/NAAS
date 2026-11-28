@@ -232,3 +232,35 @@
 .admin-leadership-main{width:min(100% - 48px,1320px);margin:0 auto;padding:26px 0 38px}.admin-leadership-page .member-topbar{position:sticky;top:0;z-index:20}.admin-leadership-main>.admin-page-heading{margin:22px 0 20px}.admin-leadership-main>.admin-page-heading h1{font:800 24px Manrope,Arial,sans-serif;letter-spacing:-.035em;margin:6px 0;color:#1e304c}.admin-leadership-main>.admin-page-heading p{font-size:10px;color:#8190a4;line-height:1.6;max-width:640px}.admin-leadership-link{display:inline-flex;align-items:center;margin:0 0 15px;padding:8px 11px;border:1px solid #e3eaf4;border-radius:7px;background:#fff;color:#3158a5;font-size:9px;font-weight:800;text-decoration:none}.admin-executive-org{margin-top:17px}.admin-executive-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.admin-executive-columns h3{font:800 13px Manrope,Arial,sans-serif;color:#354963;margin:6px 0 13px}.admin-executive-columns h4{font:800 11px Manrope,Arial,sans-serif;color:#354963;margin:20px 0 10px}.admin-executive-list{display:flex;flex-direction:column}.admin-executive-list>article{display:flex;align-items:flex-start;justify-content:space-between;gap:13px;padding:13px 0;border-top:1px solid #edf0f5;min-width:0}.admin-executive-list>article>div{min-width:0;display:flex;flex-direction:column;gap:5px}.admin-executive-list b,.admin-nomination-form>b{font-size:11px;color:#34445d}.admin-executive-list small{font-size:9px;color:#8996a8;line-height:1.5}.admin-executive-list p{font-size:9px;color:#8290a3;line-height:1.6;margin:2px 0}.admin-executive-form,.admin-nomination-form{border:1px solid #e7ecf3;background:#fbfcfe;border-radius:10px;padding:14px;margin:11px 0}.admin-executive-form h4{margin:0 0 12px}.admin-executive-form label,.admin-nomination-form label,.admin-term-form label{display:flex;flex-direction:column;gap:6px;font-size:9px;color:#65748a;margin:9px 0}.admin-executive-form label small{font-size:8px;color:#9aa4b2}.admin-executive-form input,.admin-executive-form textarea,.admin-nomination-form select,.admin-nomination-form textarea,.admin-term-form input{width:100%;border:1px solid #dfe6ef;border-radius:7px;background:#fff;padding:9px 10px;color:#354660;font-size:10px;min-width:0}.admin-form-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.admin-check-label{display:flex!important;flex-direction:row!important;align-items:center;gap:8px!important}.admin-check-label input{width:auto}.admin-executive-form>button,.admin-nomination-form>button,.admin-term-form>button{border:0;border-radius:7px;background:#3158a5;color:#fff;padding:10px 13px;font-size:9px;font-weight:800}.admin-nomination-form{background:#fff}.admin-nomination-form>b{display:block;margin-bottom:9px}.admin-term-form{width:210px;flex:none;border-left:1px solid #edf0f5;padding-left:12px}.admin-review-actions{display:flex;flex-direction:column;gap:8px;min-width:150px}.admin-review-actions form{display:flex;flex-direction:column;gap:6px}.admin-review-actions textarea{width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:7px;font-size:9px}.admin-review-actions button{border:0;border-radius:6px;background:#3158a5;color:#fff;padding:8px 10px;font-size:9px;font-weight:800}.admin-review-actions form:last-child button{background:#fff;border:1px solid #e6d9d7;color:#9a554d}
 @media(max-width:850px){.admin-executive-columns{grid-template-columns:1fr}.admin-executive-list>article{flex-wrap:wrap}.admin-term-form{width:100%;border-left:0;border-top:1px solid #edf0f5;padding:10px 0 0}.admin-review-actions{width:100%;flex-direction:row;flex-wrap:wrap}.admin-review-actions form{flex:1;min-width:130px}}
 @media(max-width:600px){.admin-leadership-main{width:calc(100% - 26px);padding-top:18px}.admin-leadership-main>.admin-page-heading{align-items:flex-start;flex-direction:column}.admin-executive-org{padding:15px}.admin-form-two{grid-template-columns:1fr}.admin-review-actions{flex-direction:column}.admin-review-actions form{width:100%}}
+
+
+/* Distinct, role-specific entry points. Member authentication retains the light treatment. */
+.auth-shell{--portal-accent:#3158b7;--portal-accent-dark:#24479c;--portal-tint:#edf3ff}
+.auth-brand-panel{background:linear-gradient(145deg,#142a4e 0%,#1b3c68 58%,#254d7c 100%)}
+.auth-form-heading>span{color:var(--portal-accent)}
+.auth-form button[type=submit]{background:var(--portal-accent);border-color:var(--portal-accent)}
+.auth-form button[type=submit]:hover{background:var(--portal-accent-dark)}
+.auth-portal-member{--portal-accent:#3158b7;--portal-accent-dark:#24479c;--portal-tint:#edf3ff}
+.auth-portal-national{--portal-accent:#b58a3b;--portal-accent-dark:#8f6929;--portal-tint:#f8f1e4}
+.auth-portal-national .auth-brand-panel{background:linear-gradient(145deg,#101d35 0%,#1b2e4d 58%,#3a3429 100%)}
+.auth-portal-union{--portal-accent:#16835d;--portal-accent-dark:#106546;--portal-tint:#e8f5ef}
+.auth-portal-union .auth-brand-panel{background:linear-gradient(145deg,#103b32 0%,#17634b 60%,#258064 100%)}
+.auth-portal-zone{--portal-accent:#087e91;--portal-accent-dark:#086274;--portal-tint:#e6f5f7}
+.auth-portal-zone .auth-brand-panel{background:linear-gradient(145deg,#103247 0%,#075c70 58%,#13869a 100%)}
+.auth-portal-institution{--portal-accent:#7252a3;--portal-accent-dark:#583b85;--portal-tint:#f0ebf8}
+.auth-portal-institution .auth-brand-panel{background:linear-gradient(145deg,#30234b 0%,#503b75 58%,#7252a3 100%)}
+.auth-portal-badge{display:inline-flex;margin-top:20px;padding:9px 12px;border:1px solid rgba(255,255,255,.24);border-radius:7px;background:rgba(255,255,255,.08);color:#fff;font-size:9px;font-weight:800;letter-spacing:.13em}
+.auth-admin-invite-note{margin:18px 0;padding:15px;border:1px solid color-mix(in srgb,var(--portal-accent) 24%,white);border-left:4px solid var(--portal-accent);border-radius:9px;background:var(--portal-tint);color:#34445b;font-size:11px;line-height:1.6}
+.auth-admin-invite-note b{display:block;color:var(--portal-accent-dark);font-size:12px}
+.auth-admin-invite-note p{margin:6px 0 9px}
+.auth-admin-invite-note a{color:var(--portal-accent-dark);font-weight:800;text-decoration:none}
+.portals-grid .portal-card{position:relative;overflow:hidden;border-top:4px solid var(--portal-accent,#3158b7)}
+.portal-card-member{--portal-accent:#3158b7;--portal-tint:#edf3ff}
+.portal-card-national{--portal-accent:#b58a3b;--portal-tint:#f8f1e4}
+.portal-card-union{--portal-accent:#16835d;--portal-tint:#e8f5ef}
+.portal-card-zone{--portal-accent:#087e91;--portal-tint:#e6f5f7}
+.portal-card-institution{--portal-accent:#7252a3;--portal-tint:#f0ebf8}
+.portals-grid .portal-card .portal-number{color:var(--portal-accent)}
+.portals-grid .portal-card>a{color:var(--portal-accent);font-weight:800}
+.portals-grid .portal-card:hover{background:var(--portal-tint)}
+@media(max-width:720px){.auth-portal-badge{font-size:8px;line-height:1.5}.auth-admin-invite-note{font-size:10px}}
