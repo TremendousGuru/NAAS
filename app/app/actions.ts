@@ -193,7 +193,7 @@ export async function publishCommunityPost(formData: FormData) {
   const orgId = String(formData.get("author_org_id") ?? "").trim();
   const mediaFile = formData.get("media");
   if (content.length < 1) redirect("/app/community?feed=empty");
-  if (mediaFile instanceof File && mediaFile.size > 10 * 1024 * 1024) redirect("/app/community?feed=media-too-large");
+  if (mediaFile instanceof File && mediaFile.size > 3 * 1024 * 1024) redirect("/app/community?feed=media-too-large");
   if (mediaFile instanceof File && mediaFile.size > 0 && !["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm"].includes(mediaFile.type)) redirect("/app/community?feed=media-invalid");
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
