@@ -87,7 +87,7 @@ export default async function AdministratorPage({ searchParams }: { searchParams
   const transferOrgMap = new Map((transferOrganizations ?? []).map(org => [org.id, org]));
 
 
-  return <main className="member-app">
+  return <main className={"member-app admin-route-main admin-theme-" + (requestedScope || "multi")}>
     <header className="member-topbar">
       <Link href="/app" className="member-brand"><span className="member-eyebrow">NAASCONNECT</span><b>Administration</b></Link>
       <div className="member-top-actions"><span>{user.email}</span><form action={signOut}><button type="submit">Sign out</button></form></div>
