@@ -47,12 +47,12 @@ Implemented in `feature/naasconnect-mobile-multipage-intro`:
 
 ## 6. Follow-up hardening — 28 November 2026
 
-The deployed `admin-appointment` Edge Function is now version 4 (`verify_jwt=true`). The update hardens the invitation lifecycle without changing the database schema:
+The deployed `admin-appointment` Edge Function is now version 5 (`verify_jwt=true`). The update hardens the invitation lifecycle without changing the database schema:
 
 - The invitation action validates the request UUID and requires a completed approval record.
 - Before sending an invitation, it rechecks that the signed-in inviter still has an active administrator membership at the seat's approving organization. Historical visibility as the original nominator is not sufficient.
 - The invitation record is marked `invited` before the optional pending-membership upsert, so a failed pending write does not cause the system to send a second invitation on retry.
 - Acceptance verifies the invited auth user ID and email, then upserts the active organization membership. This makes acceptance retry-safe if an earlier attempt stopped between membership, seat and request updates.
-- The function keeps JWT verification enabled and no longer falls back to wildcard CORS when `APP_ORIGIN` is missing.
+- The function keeps JWT verification enabled and no longer falls back to wildcard CORS when `APP_ORIGIN` is missing. The configured app origin is required only when sending an invitation; acceptance does not depend on that redirect setting.
 
-The live function was re-read after deployment and confirmed at version 4. The appointment queue currently has no requests; no nominee invitations or administrator assignments were created by this update. Controlled-account invite/accept testing is still required before declaring this workflow fully accepted.
+The live function was re-read after deployment and confirmed at version 5. The appointment queue currently has no requests; no nominee invitations or administrator assignments were created by this update. Controlled-account invite/accept testing is still required before declaring this workflow fully accepted.
