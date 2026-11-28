@@ -79,3 +79,24 @@ This pass changed GitHub frontend code and documentation only. No Supabase migra
 - Member login remains unchanged.
 - Appointment, review, invitation and acceptance flows pass end-to-end with verified test accounts.
 - Mobile and desktop navigation and all five portal entry points pass Playwright checks.
+
+## Portal separation correction — 28 November 2026
+
+### What was wrong
+The shared sign-in action authenticated credentials before validating portal assignment and did not clear the session when the account lacked an assignment for the selected portal. Middleware also redirected any authenticated visitor away from `/login`, preventing a user from deliberately switching portal entry points.
+
+### Implemented correction
+- Every portal now has a portal-specific login experience and visual identity: member (white/light), national (navy/gold), union (green), zone (teal), institution/campus/church (purple).
+- Administrative portals no longer expose public self-registration. Administrator accounts are invitation/appointment-only; an authorized appointing authority must create the assignment and invite the nominee.
+- Sign-in starts by clearing any previous session, then authenticates the submitted credentials and verifies an active `org_memberships` assignment for the selected portal and matching organization type.
+- The member portal accepts only active `member` or `church_member` memberships in campus/church organizations.
+- National, Union, Zone and Institution portals accept only their corresponding active administrator roles and matching organization types.
+- A mismatch signs out the session and returns a portal-specific error. It cannot fall through to the member workspace.
+- Middleware no longer forces an authenticated user away from the portal-selection/login page, so a deliberate portal switch is possible. Protected server routes still perform their own authorization checks.
+- Multi-assignment administrators are sent to the organization selector and can only see their own active assignments.
+
+### Important identity model
+The login credential is a Supabase Auth identity; portal authorization is a separate, database-backed active assignment. The same Auth identity can legitimately enter more than one portal only if it has an active assignment in each. If NAAS requires completely separate human identities per portal, each portal must be provisioned with a separate invited Auth account/email and its own scoped assignment; the login UI cannot manufacture that separation.
+
+### Operational access / preview limitation
+A National/Union/Zone/Institution administrator cannot self-register or gain access merely by visiting a portal. The portal interface is available at its entry point, but the live workspace requires an active appointment. Do not create a universal test password or bypass RLS to make the dashboards appear accessible. A safe read-only demo/preview identity can be provisioned separately if stakeholder visual inspection is needed.
