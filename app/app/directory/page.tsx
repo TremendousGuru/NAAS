@@ -34,7 +34,7 @@ export default async function OrganizationDirectory({ searchParams }: {
       .order("name", { ascending: true })
       .limit(250),
     supabase.from("profiles")
-      .select("member_category,state_of_admission,preferred_region_state,institution_name")
+      .select("member_category,state_of_admission,preferred_region_state,institution_name,profile_completed")
       .eq("id", user.id)
       .maybeSingle()
   ]);
@@ -52,7 +52,7 @@ export default async function OrganizationDirectory({ searchParams }: {
 
   const isStudent = profileResult.data?.member_category === "student";
   const isNonStudent = profileResult.data?.member_category === "non_student";
-  const canRequestThisType = type === "campus" ? isStudent : isNonStudent;
+  const canRequestThisType = !profileResult.error && profileResult.data?.profile_completed === true && (type === "campus" ? isStudent : isNonStudent);
 
   return (
     <main className="member-app portal-app-frame"><PortalSideNav/><div className="portal-main-column"><header className="portal-main-topbar"><span>NAASCONNECT NIGERIA <i>/</i> MEMBER SPACE</span><Link href="/app">Overview</Link></header><div className="portal-dashboard directory-shell">
@@ -92,7 +92,7 @@ export default async function OrganizationDirectory({ searchParams }: {
           <span className="directory-kicker">{type === "campus" ? "ADVENTIST STUDENTS FELLOWSHIPS" : "SEVENTH-DAY ADVENTIST CHURCHES"}</span>
           <h2>{type === "campus" ? "Campus fellowships" : "Churches"} <span>{organizations.length}</span></h2>
         </div>
-        <p>{canRequestThisType ? "You can request membership from an eligible organization profile." : type === "campus" ? "Campus membership requests are available to completed student profiles." : "Church membership requests are available to completed non-student profiles."}</p>
+        <p>{canRequestThisType ? "Your completed profile is eligible to request membership from a matching organization." : type === "campus" ? "Complete a student profile to request campus membership." : "Complete a non-student profile to request church membership."}</p>
       </div>
 
       {organizationsResult.error ? (
