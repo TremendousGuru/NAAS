@@ -72,3 +72,8 @@ A separate `community-moderation` Edge Function (version 1, JWT verification ena
 - The service-role Edge Function is the only path for these global actions; the authenticated client has no new table privileges or RLS bypass.
 
 The function is deployed and the National-only queue/actions are now connected to the community page. Controlled-account verification with a National admin and a non-National admin is still required. No database schema, table, policy or grant was changed.
+
+
+## Abuse-control follow-up — 28 November 2026
+
+Report submission now applies a fail-closed per-user throttle using the reporter's own RLS-visible report history: no more than five reports in a rolling hour or twenty in a rolling day. The existing unique constraint continues to prevent duplicate reports by the same user against the same post. This is a best-effort application-level throttle; concurrent requests can still race because a transactional database rate limiter would require a new schema/function change, which remains held behind the migration recovery gate.
