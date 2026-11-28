@@ -3,6 +3,7 @@ import PortalSideNav from "../PortalSideNav";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { deleteCommunityStatus, publishCommunityStatus } from "../actions";
+import { publishCommunityPost, reportCommunityPost, reviewCommunityReport } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,7 +18,7 @@ type StatusRow = {
   author_org_id: string | null;
 };
 
-export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string}>}) {
+export default async function CommunityPage({searchParams}:{searchParams:Promise<{status?:string;post?:string;report?:string;moderation?:string}>}) {
   const params = await searchParams;
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -37,6 +38,17 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
   const activeMembership = memberships.length > 0;
   const adminMemberships = memberships.filter(item => ["national_admin","union_admin","zone_admin","campus_admin","church_admin"].includes(item.role));
   const statuses = (data ?? []) as StatusRow[];
+  const [{ data: communityPosts, error: communityError }, { data: scopedAdminRows }, { data: openReports }] = await Promise.all([
+    supabase.from("community_posts").select("id,author_user_id,author_org_id,audience_org_id,post_type,title,content,media_path,published_at,org_units(name)").eq("status","published").order("published_at",{ascending:false}).limit(50),
+    supabase.from("org_memberships").select("org_id,role,org_units!inner(id,name,status)").eq("user_id",user.id).eq("status","active").in("role",["national_admin","union_admin","zone_admin","campus_admin","church_admin"]),
+    supabase.from("community_post_reports").select("id,post_id,reason,details,status,created_at,community_posts!inner(title,content,author_org_id)").in("status",["open","reviewing"]).order("created_at",{ascending:true}).limit(50)
+  ]);
+  const scopedAdmins=(scopedAdminRows??[]).filter((r:any)=>r.org_units?.status==="active");
+  const scopedReports=(openReports??[]).filter((r:any)=>scopedAdmins.some((o:any)=>o.org_id===r.community_posts?.author_org_id));
+  const persistentPosts=(communityPosts??[]) as any[];
+  const signedMedia=await Promise.all(persistentPosts.map(post=>post.media_path?supabase.storage.from("community-media").createSignedUrl(post.media_path,300):Promise.resolve({data:null} as any)));
+  const mediaUrls=new Map(persistentPosts.map((post,i)=>[post.id,signedMedia[i]?.data?.signedUrl??null]));
+
   return (
     <main className="member-app portal-app-frame"><PortalSideNav/><div className="portal-main-column"><header className="portal-main-topbar"><span>NAASCONNECT NIGERIA <i>/</i> MEMBER SPACE</span><Link href="/app">Overview</Link></header><div className="portal-dashboard directory-shell">
       <header className="directory-header">
@@ -79,6 +91,33 @@ export default async function CommunityPage({searchParams}:{searchParams:Promise
           ))}
         </div>
       )}
+
+      <section className="community-composer">
+        <span className="directory-kicker">PERSISTENT COMMUNITY</span><h2>Share a community post</h2>
+        <p>These posts remain in the feed. They are separate from the 24-hour Global Status updates above.</p>
+        {params.post && <p className="community-feedback" role="status">{params.post==="published"?"Your post has been published.":"The post could not be published. Check your permissions and attachment."}</p>}
+        {params.report && <p className="community-feedback" role="status">{params.report==="submitted"?"Your report has been submitted.":"The report could not be submitted."}</p>}
+        {params.moderation && <p className="community-feedback" role="status">{params.moderation==="saved"?"Moderation decision saved.":"Moderation action failed."}</p>}
+        <form action={publishCommunityPost} className="community-form">
+          <label>Post type<select name="post_type"><option value="member_post">Community post</option>{scopedAdmins.length>0&&<option value="announcement">Official announcement</option>}</select></label>
+          {scopedAdmins.length>0&&<label>Organization<select name="author_org_id"><option value="">Choose organization</option>{scopedAdmins.map((o:any)=><option key={o.org_id} value={o.org_id}>{o.org_units.name}</option>)}</select></label>}
+          <label>Announcement title<input name="title" maxLength={160} placeholder="Required for official announcements"/></label>
+          <label>Message<textarea name="content" required maxLength={5000} rows={4}/></label>
+          <label>Image or short video<input name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"/></label>
+          <small>Maximum attachment size: 10 MB. Media is stored privately.</small><button className="community-submit" type="submit">Publish post</button>
+        </form>
+      </section>
+      <section className="community-feed">
+        <div className="community-section-heading"><div><span className="directory-kicker">LATEST POSTS</span><h2>Community feed</h2></div><span>{persistentPosts.length} posts</span></div>
+        {communityError?<div className="directory-empty"><h3>Community feed unavailable</h3><p>The persistent community feature may not yet be enabled in this environment.</p></div>:persistentPosts.length===0?<div className="directory-empty"><h3>No community posts yet</h3><p>New persistent posts will appear here.</p></div>:persistentPosts.map(post=><article className="community-post" key={post.id}>
+          <span className={post.post_type==="announcement"?"community-badge official":"community-badge"}>{post.post_type==="announcement"?"Official announcement":"Community post"}</span>
+          <h3>{post.title??"Community update"}</h3><small>{post.org_units?.name??"NAASCONNECT member"} · {new Date(post.published_at).toLocaleString("en-NG",{dateStyle:"medium",timeStyle:"short"})}</small>
+          <p className="community-post-copy">{post.content}</p>{mediaUrls.get(post.id)&&<a className="community-media-link" href={mediaUrls.get(post.id)!} target="_blank" rel="noreferrer">View attachment ↗</a>}
+          <details className="community-report"><summary>Report this post</summary><form action={reportCommunityPost}><input type="hidden" name="post_id" value={post.id}/><label>Reason<select name="reason"><option value="spam">Spam</option><option value="harassment">Harassment</option><option value="hate_or_abuse">Hate or abuse</option><option value="misinformation">Misinformation</option><option value="inappropriate">Inappropriate</option><option value="other">Other</option></select></label><label>Details<textarea name="details" maxLength={1000}/></label><button type="submit">Submit report</button></form></details>
+        </article>)}
+      </section>
+      {scopedReports.length>0&&<section className="community-moderation"><span className="directory-kicker">AUTHORIZED MODERATION</span><h2>Moderation queue</h2>{scopedReports.map((r:any)=><article className="community-post" key={r.id}><b>{r.reason.replaceAll("_"," ")}</b><p>{r.community_posts?.title??r.community_posts?.content}</p><form action={reviewCommunityReport}><input type="hidden" name="report_id" value={r.id}/><label>Decision<select name="status"><option value="reviewing">Under review</option><option value="resolved">Resolve</option><option value="dismissed">Dismiss</option></select></label><label>Review note<textarea name="review_note" minLength={10} required/></label><button type="submit">Save decision</button></form></article>)}</section>}
+
       <footer className="directory-footer">Only authenticated NAASCONNECT users can access global statuses. Expired statuses are excluded from this view.</footer>
     </div></div></main>
   );
