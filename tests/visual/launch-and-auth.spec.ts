@@ -73,3 +73,12 @@ test("organization management requires an authenticated administrator assignment
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
   await expect(page.getByRole("heading", { name: "Sign in to your account" })).toBeVisible();
 });
+
+
+test("member, notification, event and administrator workflows require authentication", async ({ page }) => {
+  for (const route of ["/app/community", "/app/notifications", "/app/events", "/admin/onboarding"]) {
+    await page.goto(route, { waitUntil: "networkidle" });
+    await expect(page, `Route ${route} should redirect unauthenticated visitors to login`).toHaveURL(/\\/login(?:\\?|$)/);
+    await expect(page.getByRole("heading", { name: "Sign in to your account" })).toBeVisible();
+  }
+});
