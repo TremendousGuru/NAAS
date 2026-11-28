@@ -59,3 +59,16 @@ These should be implemented only in their corresponding planned stages, without 
 The authenticated `/app/community` route now reads the existing `community_posts` feed, displays community-wide member posts and organization announcements, provides a personal post composer, exposes organization announcement publishing only to users with an active administrator membership for the selected organization, and submits reports to `community_post_reports`. The existing RLS policies remain authoritative. The route also retains the separate 24-hour global status experience.
 
 The National/Union/Zone/Campus/Church administrator community workspace now includes a report-review queue for organization-authored announcements. Review updates (under review, resolved, dismissed, optional review note) are written through the authenticated server action; the existing `community_reports_review` RLS policy remains the authority and restricts each administrator to reports on posts within their organization scope. The queue intentionally excludes personal member posts because the current database policy does not grant platform-wide moderation authority.\n\nThe database also enforces one report per user per post through the unique constraint `community_post_reports_post_id_reporter_user_id_key`; duplicate submissions are therefore rejected at the database layer. Rate limiting is still outstanding. Media upload/storage and controlled-account positive/negative tests also remain outstanding. No schema change was made in this UI pass.
+
+
+## National personal-post moderation — 28 November 2026
+
+A separate `community-moderation` Edge Function (version 1, JWT verification enabled) now supplies the platform-wide moderation queue for personal `member_post` reports. This avoids weakening the existing organization-scoped RLS policies or introducing a schema migration while the migration-source recovery gate remains closed.
+
+- The function derives the active National organization from `org_units` and requires the signed-in user to hold an active `national_admin` membership at that exact organization. It does not trust user-editable metadata.
+- It lists open/reviewing reports only where the related post is a personal member post (`author_org_id IS NULL`).
+- National administrators can record review outcomes and notes, or hide a reported personal post. Hiding requires a moderation note and resolves the linked report.
+- The existing organization-scoped queue remains in place for organization announcements; Union/Zone administrators do not gain platform-wide member-post authority.
+- The service-role Edge Function is the only path for these global actions; the authenticated client has no new table privileges or RLS bypass.
+
+The function is deployed and the National-only queue/actions are now connected to the community page. Controlled-account verification with a National admin and a non-National admin is still required. No database schema, table, policy or grant was changed.
