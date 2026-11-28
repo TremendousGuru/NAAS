@@ -49,7 +49,7 @@ export default async function EventsPage({searchParams}:{searchParams:Promise<{r
     "meeting-link-required":"Provide a valid HTTPS meeting link for an online or hybrid event.",
     "membership-required":"An active NAAS membership is required to create an event or register.",
     "not-authorized":"You are not authorized to publish on behalf of that organization.",
-    "cover-invalid":"Choose a JPG, PNG or WebP cover image up to 10 MB.",
+    "cover-invalid":"Choose a JPG, PNG or WebP cover image up to 3 MB.",
     "cover-upload-failed":"The cover image could not be uploaded.",
     "not-created":"The event could not be created. Check the details and try again.",
     "registration-failed":"Registration could not be completed. You may already be registered, the deadline may have passed, or capacity may be full.",
