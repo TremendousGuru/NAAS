@@ -67,3 +67,9 @@ test("login branding assets load and the layout fits the viewport", async ({ pag
   await page.screenshot({ path: `artifacts/login-${testInfo.project.name}.png`, fullPage: true });
   expect(pageErrors, "The login route must not throw browser errors").toEqual([]);
 });
+
+test("organization management requires an authenticated administrator assignment", async ({ page }) => {
+  await page.goto("/admin/organizations", { waitUntil: "networkidle" });
+  await expect(page).toHaveURL(/\\/login(?:\\?|$)/);
+  await expect(page.getByRole("heading", { name: "Sign in to your account" })).toBeVisible();
+});
