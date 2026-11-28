@@ -115,7 +115,7 @@ export default async function OrganizationDirectory({ searchParams }: {
         <div className="directory-empty">
           <div className="directory-empty-icon">⌕</div>
           <h3>{totalOrganizations === 0 ? "No active listings yet" : "No matching organizations"}</h3>
-          <p>{allOrganizations.length === 0
+          <p>{totalOrganizations === 0
             ? `There are currently no active ${type === "campus" ? "campus / ASF" : "church"} records in the directory. Organization records must be added and activated by authorized administrators before they become discoverable. No sample or unverified listings are being displayed.`
             : "Try a different name or clear the selected state filter to see more results."}</p>
           {(query || state) && <Link href={`/app/directory?type=${type}`}>Clear search and filters</Link>}
